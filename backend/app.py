@@ -1,25 +1,26 @@
 # ============================================
 # Neelakshi AI Chatbot - FastAPI Backend (Render)
-# (Now supports live Hindi news updates)
+# ✅ Updated: Fetches LIVE Hindi News from Google News RSS
 # ============================================
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import google.generativeai as genai
-import os, requests
+import os
 import feedparser
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
+# Initialize FastAPI
 app = FastAPI()
 
-# Enable CORS for frontend
+# Allow frontend connection (Render static site)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Replace * with your frontend URL for security
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,6 +29,7 @@ app.add_middleware(
 # Configure Gemini API
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
+# Request model
 class ChatRequest(BaseModel):
     message: str
 
@@ -37,31 +39,29 @@ async def root():
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
-    user_message = request.message.lower()
+    user_msg = request.message.lower()
 
-    # ✅ If user asks for Hindi news
-    if "news" in user_message or "खबर" in user_message:
+    # 📰 If user asks for news
+    if "news" in user_msg or "खबर" in user_msg or "headline" in user_msg:
         try:
             feed = feedparser.parse("https://news.google.com/rss?hl=hi&gl=IN&ceid=IN:hi")
-            news_items = []
-            for entry in feed.entries[:5]:
-                news_items.append(entry.title)
-            headlines = "\n".join([f"{i+1}. {n}" for i, n in enumerate(news_items)])
+            headlines = [entry.title for entry in feed.entries[:5]]
 
+            if not headlines:
+                return {"reply": "⚠️ फिलहाल कोई खबरें प्राप्त नहीं हुईं। कृपया कुछ समय बाद पुनः प्रयास करें।"}
+
+            news_text = "\n".join([f"{i+1}. {headline}" for i, headline in enumerate(headlines)])
             return {
-                "reply": f"🗞️ आज की टॉप 5 हिंदी खबरें इस प्रकार हैं:\n{headlines}\n\nआप और जानकारी के लिए गूगल न्यूज़ पर जा सकते हैं।"
+                "reply": f"🗞️ आज की टॉप 5 हिंदी खबरें इस प्रकार हैं:\n\n{news_text}\n\nआप अधिक जानकारी के लिए Google News वेबसाइट पर जा सकते हैं।"
             }
+
         except Exception as e:
             return {"reply": f"⚠️ खबरें लोड करने में समस्या आई: {str(e)}"}
 
-    # ✅ Normal Gemini chat
+    # 💬 Otherwise, let Gemini answer normally
     try:
         model = genai.GenerativeModel("models/gemini-2.0-flash")
         response = model.generate_content(request.message)
-
-        if hasattr(response, "text") and response.text:
-            return {"reply": response.text}
-        else:
-            return {"reply": "⚠️ Sorry, I couldn’t generate a valid reply."}
+        return {"reply": response.text if hasattr(response, "text") else "⚠️ कोई उत्तर उपलब्ध नहीं है।"}
     except Exception as e:
         return {"reply": f"⚠️ Error: {str(e)}"}
