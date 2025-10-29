@@ -7,26 +7,29 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div class="sidebar">
-      <h2>Chat History</h2>
-      <ul id="history"></ul>
-    </div>
+    <div class="container">
+      <aside class="sidebar">
+        <h2>🗂️ Chat History</h2>
+        <ul id="history"></ul>
+      </aside>
 
-    <div class="main">
-      <header>
-        <h1>🤖 Neelakshi AI Chatbot</h1>
-      </header>
+      <main class="chat-section">
+        <header class="chat-header">
+          <h1>🤖 Neelakshi AI Chatbot</h1>
+          <p>Ask anything. Learn everything.</p>
+        </header>
 
-      <div id="chat-box" class="chat-box"></div>
+        <div id="chat-box" class="chat-box"></div>
 
-      <div class="input-area">
-        <textarea
-          id="user-input"
-          rows="1"
-          placeholder="Type your message..."
-        ></textarea>
-        <button id="send-btn">➤</button>
-      </div>
+        <div class="input-area">
+          <textarea
+            id="user-input"
+            rows="1"
+            placeholder="Type your message..."
+          ></textarea>
+          <button id="send-btn">➤</button>
+        </div>
+      </main>
     </div>
 
     <script src="script.js"></script>
