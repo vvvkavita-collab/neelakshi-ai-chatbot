@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neelakshi AI Chatbot</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <h2>💬 Chat History</h2>
+      <ul id="history"></ul>
+    </div>
+
+    <!-- Chat Section -->
+    <div class="chat-container">
+      <header>🤖 Neelakshi AI Chatbot</header>
+
+      <div id="chat-box">
+        <div class="message bot">
+          <div class="bubble">
+            Hello Neelakshi 👋<br />I’m your AI chatbot. How can I help you today?
+          </div>
+        </div>
+      </div>
+
+      <!-- Input area -->
+      <div class="input-area">
+        <input
+          type="text"
+          id="user-input"
+          placeholder="Type your message..."
+          autocomplete="off"
+        />
+        <button id="send-btn">Send</button>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
