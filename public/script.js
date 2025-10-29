@@ -10,7 +10,7 @@ const historyList = document.getElementById("history");
 
 let history = [];
 
-// Add a message (user/bot)
+// Add message to chat
 function appendMessage(sender, text) {
   const messageDiv = document.createElement("div");
   messageDiv.classList.add("message", sender);
@@ -27,7 +27,6 @@ function appendMessage(sender, text) {
     .replace(/\n/g, "<br>");
 
   bubble.innerHTML = html;
-
   messageDiv.appendChild(bubble);
   chatBox.appendChild(messageDiv);
   chatBox.scrollTop = chatBox.scrollHeight;
@@ -40,23 +39,24 @@ async function sendMessage() {
 
   appendMessage("user", text);
   userInput.value = "";
+  userInput.style.height = "45px"; // reset height
 
   try {
     const response = await fetch("https://neelakshi-ai-chatbot.onrender.com/chat", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ message: text }),
-});
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }),
+    });
 
     const data = await response.json();
     appendMessage("bot", data.reply);
     saveToHistory(text, data.reply);
   } catch (error) {
-    appendMessage("bot", "⚠️ Error: Unable to connect to the server.");
+    appendMessage("bot", "⚠️ Error: Unable to connect to server.");
   }
 }
 
-// Manage chat history
+// Save chat history
 function saveToHistory(userMsg, botMsg) {
   const entry = { userMsg, botMsg, time: new Date().toLocaleTimeString() };
   history.unshift(entry);
@@ -80,9 +80,18 @@ function loadChat(index) {
   appendMessage("bot", chat.botMsg);
 }
 
-// Listeners
-sendBtn.addEventListener("click", sendMessage);
-userInput.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") sendMessage();
+// Handle Enter/Shift+Enter
+userInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
 });
 
+// Auto expand textarea
+userInput.addEventListener("input", () => {
+  userInput.style.height = "auto";
+  userInput.style.height = userInput.scrollHeight + "px";
+});
+
+sendBtn.addEventListener("click", sendMessage);
