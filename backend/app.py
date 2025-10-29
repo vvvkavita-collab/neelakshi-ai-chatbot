@@ -1,77 +1,62 @@
 # ============================================
-# Neelakshi AI Chatbot - FastAPI Backend (with Live Web Search)
+# Neelakshi AI Chatbot - FastAPI Backend (With Live Google Search)
 # ============================================
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import google.generativeai as genai
-import os
 import requests
+import os
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Initialize FastAPI
 app = FastAPI()
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace * with frontend URL later
-    allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Configure Gemini
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Define data model
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
+
 class ChatRequest(BaseModel):
     message: str
 
-# 🔹 Function: Google Search API (for current info)
-def get_live_info(query):
-    api_key = os.getenv("GOOGLE_API_KEY")
-    cx = os.getenv("SEARCH_ENGINE_ID")  # Add this in .env (custom search engine ID)
-    url = f"https://www.googleapis.com/customsearch/v1?q={query}&key={api_key}&cx={cx}"
-    try:
-        response = requests.get(url)
-        data = response.json()
-        results = data.get("items", [])
-        if results:
-            snippet = results[0].get("snippet", "No live info found.")
-            link = results[0].get("link", "")
-            return f"{snippet}\n\n(Source: {link})"
-        return "Sorry, no recent updates found online."
-    except Exception as e:
-        return f"⚠️ Error fetching live info: {str(e)}"
-
-# Root
 @app.get("/")
-async def root():
+def home():
     return {"message": "Neelakshi AI Chatbot backend is running fine ✅"}
 
-# Chat Endpoint
 @app.post("/chat")
-async def chat(request: ChatRequest):
-    user_message = request.message
+def chat(req: ChatRequest):
+    user_query = req.message.strip()
 
+    # 1️⃣ Try Google Search for live info
     try:
-        # Step 1: If message asks for current data, get live info
-        keywords = ["today", "latest", "now", "news", "update", "2025", "current"]
-        if any(word in user_message.lower() for word in keywords):
-            live_data = get_live_info(user_message)
-            prompt = f"User asked: {user_message}\nHere is recent info from the web:\n{live_data}\n\nWrite a helpful, accurate answer using this info."
+        search_url = (
+            f"https://www.googleapis.com/customsearch/v1?q={user_query}"
+            f"&key={GOOGLE_API_KEY}&cx={SEARCH_ENGINE_ID}"
+        )
+        results = requests.get(search_url).json()
+        if "items" in results:
+            summary = "\n".join([item["snippet"] for item in results["items"][:3]])
+            context = f"Live search results:\n{summary}"
         else:
-            prompt = user_message
+            context = "No live results found."
+    except Exception as e:
+        context = f"Error fetching live data: {e}"
 
-        # Step 2: Generate Gemini response
+    # 2️⃣ Ask Gemini to summarize/answer using context
+    try:
         model = genai.GenerativeModel("models/gemini-2.0-flash")
+        prompt = f"Use the following data to answer the question clearly:\n{context}\n\nQuestion: {user_query}"
         response = model.generate_content(prompt)
         return {"reply": response.text}
-
     except Exception as e:
-        return {"reply": f"⚠️ Error: {str(e)}"}
+        return {"reply": f"⚠️ Error: {e}"}
