@@ -1,14 +1,17 @@
-import os
-import requests
-from fastapi import FastAPI, HTTPException
+# backend/app.py
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import google.generativeai as genai  # ✅ Correct import
+import os
+from dotenv import load_dotenv
+import google.generativeai as genai
+import requests
 
-# Initialize FastAPI app
+load_dotenv()
+
 app = FastAPI()
 
-# Enable CORS for frontend
+# Allow frontend access
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,10 +19,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Request model
-class ChatRequest(BaseModel):
-    message: str
 
 # Load API keys
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -29,44 +28,35 @@ GOOGLE_SEARCH_ENGINE_ID = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
 # Configure Gemini
 genai.configure(api_key=GEMINI_API_KEY)
 
-# Function to get live data via Google Search
+class Query(BaseModel):
+    question: str
+
 def google_search(query):
-    try:
-        url = "https://www.googleapis.com/customsearch/v1"
-        params = {
-            "key": GOOGLE_SEARCH_API_KEY,
-            "cx": GOOGLE_SEARCH_ENGINE_ID,
-            "q": query,
-            "num": 5
-        }
-        response = requests.get(url, params=params)
-        data = response.json()
+    url = f"https://www.googleapis.com/customsearch/v1?q={query}&key={GOOGLE_SEARCH_API_KEY}&cx={GOOGLE_SEARCH_ENGINE_ID}"
+    response = requests.get(url)
+    data = response.json()
 
-        results = []
-        if "items" in data:
-            for item in data["items"]:
-                results.append(f"{item['title']}: {item['link']}")
-        return "\n".join(results) if results else "No fresh info found online right now."
-    except Exception as e:
-        return f"Error fetching live data: {e}"
+    results = []
+    if "items" in data:
+        for item in data["items"][:3]:
+            results.append(item["snippet"])
+    return " ".join(results) if results else "No recent info found online."
 
-# Chat endpoint
 @app.post("/chat")
-async def chat_endpoint(request: ChatRequest):
-    user_message = request.message.strip()
+async def chat_with_ai(request: Request):
+    body = await request.json()
+    question = body.get("question")
 
-    live_keywords = ["today", "current", "present", "now", "latest", "news", "aaj", "abhi"]
-    if any(word in user_message.lower() for word in live_keywords):
-        search_results = google_search(user_message)
-        return {"response": search_results}
+    # Step 1: Fetch latest info from Google
+    search_data = google_search(question)
 
-    try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(user_message)
-        return {"response": response.text}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # Step 2: Ask Gemini to summarize
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    prompt = f"Use this recent information and answer: {question}\n\nData: {search_data}"
+    response = model.generate_content(prompt)
+
+    return {"answer": response.text}
 
 @app.get("/")
 def home():
-    return {"message": "Neelakshi AI Chatbot Backend is Running Successfully 🚀"}
+    return {"message": "Neelakshi AI backend is running!"}
