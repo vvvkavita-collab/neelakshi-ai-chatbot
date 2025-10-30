@@ -1,83 +1,86 @@
-# ============================================
-# Neelakshi AI Chatbot - FastAPI Backend (Render)
-# with Google Search + Gemini
-# ============================================
-
-from fastapi import FastAPI
+import os
+import requests
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import google.generativeai as genai
-import requests
-import os
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
+from google import genai
+from google.genai.types import Content
 
 # Initialize FastAPI app
 app = FastAPI()
 
-# Allow frontend (Render static site)
+# Allow frontend communication (important for your onrender frontend)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # you can restrict later
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Configure Gemini
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-
-# Google Search config
-GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
-SEARCH_ENGINE_ID = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
-
-# Chat request schema
+# Define request model
 class ChatRequest(BaseModel):
     message: str
 
-# Function: get search results
-def get_google_results(query):
+# Initialize Gemini client
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY not found. Please set it in Render Environment.")
+
+client = genai.Client(api_key=GEMINI_API_KEY)
+
+# Google Search API keys
+GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
+GOOGLE_SEARCH_ENGINE_ID = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
+
+
+# 🔹 Function: Google Custom Search
+def google_search(query):
+    """Fetch top results using Google Programmable Search API"""
     try:
-        url = (
-            f"https://www.googleapis.com/customsearch/v1"
-            f"?key={GOOGLE_SEARCH_API_KEY}&cx={SEARCH_ENGINE_ID}&q={query}"
-        )
-        response = requests.get(url)
+        url = "https://www.googleapis.com/customsearch/v1"
+        params = {
+            "key": GOOGLE_SEARCH_API_KEY,
+            "cx": GOOGLE_SEARCH_ENGINE_ID,
+            "q": query,
+            "num": 5
+        }
+        response = requests.get(url, params=params)
         data = response.json()
 
         results = []
-        for item in data.get("items", []):
-            results.append(f"- {item['title']}: {item['link']}")
-        return "\n".join(results[:5]) if results else None
-
+        if "items" in data:
+            for item in data["items"]:
+                results.append(f"{item['title']}: {item['link']}")
+        return "\n".join(results) if results else "No fresh info found online right now."
     except Exception as e:
-        return None
+        return f"Error fetching live data: {e}"
 
-# Root health check
-@app.get("/")
-async def root():
-    return {"message": "✅ Neelakshi AI Chatbot backend is running fine!"}
 
-# Chat endpoint
+# 🔹 Main Chat Endpoint
 @app.post("/chat")
-async def chat(request: ChatRequest):
-    user_message = request.message
+async def chat_endpoint(request: ChatRequest):
+    user_message = request.message.strip()
 
-    # If question looks like “current/latest/today/now”
-    if any(word in user_message.lower() for word in ["today", "current", "latest", "news", "2025", "now"]):
-        search_results = get_google_results(user_message)
-        if search_results:
-            combined_input = f"User asked: {user_message}\nBased on these Google results:\n{search_results}\nGive the best summarized and updated answer."
-        else:
-            combined_input = f"User asked: {user_message}\nNo search results found. Try answering anyway."
-    else:
-        combined_input = user_message
+    # If user asks for current or real-time info
+    live_keywords = ["today", "current", "present", "now", "latest", "news", "aaj", "abhi"]
+    if any(word in user_message.lower() for word in live_keywords):
+        search_results = google_search(user_message)
+        return {"response": search_results}
 
+    # Otherwise use Gemini for general AI chat
     try:
-        model = genai.GenerativeModel("models/gemini-1.5-flash")
-        response = model.generate_content(combined_input)
-        return {"reply": response.text}
+        prompt = f"You are Neelakshi AI Chatbot. Answer in a friendly and factual way.\nUser: {user_message}\nAnswer:"
+        result = client.models.generate_content(
+            model="models/gemini-1.5-flash-latest",
+            contents=[Content(role="user", parts=[prompt])]
+        )
+        response_text = result.candidates[0].content.parts[0].text
+        return {"response": response_text}
     except Exception as e:
-        return {"reply": f"⚠️ Error: {str(e)}"}
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/")
+def home():
+    return {"message": "Neelakshi AI Chatbot Backend is Running Successfully 🚀"}
