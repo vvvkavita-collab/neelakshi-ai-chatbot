@@ -1,26 +1,24 @@
 # ============================================
 # Neelakshi AI Chatbot - FastAPI Backend (Render)
-# With Google CSE (Live News & Search Integration)
+# Real-Time Google Search + Gemini AI
 # ============================================
 
-from fastapi import FastAPI, Request, UploadFile, File
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import google.generativeai as genai
-import os
+import os, requests
 from dotenv import load_dotenv
-import requests
 
-# Load .env
+# Load environment variables
 load_dotenv()
 
-# Initialize FastAPI app
 app = FastAPI()
 
-# Allow CORS
+# Allow frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Change "*" to your frontend URL if you want security
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
@@ -29,48 +27,47 @@ app.add_middleware(
 # Configure Gemini
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Environment Variables for Google Search
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
 
-# Schema
 class ChatRequest(BaseModel):
     message: str
 
-# Health check route
 @app.get("/")
 async def root():
-    return {"message": "✅ Neelakshi AI Chatbot backend is running fine"}
+    return {"message": "✅ Neelakshi AI Chatbot backend running fine!"}
 
-# Chat endpoint (Gemini + optional Google Search)
 @app.post("/chat")
 async def chat(request: ChatRequest):
-    user_input = request.message
+    user_input = request.message.strip()
 
-    # Try to use Google Search for recent queries
-    if "news" in user_input.lower() or "आज" in user_input or "latest" in user_input.lower():
+    # Detect if question needs live info
+    live_keywords = ["today", "now", "latest", "current", "news", "2025", "अभी", "आज", "अब", "ताज़ा"]
+    if any(k in user_input.lower() for k in live_keywords):
         try:
             search_url = (
-                f"https://www.googleapis.com/customsearch/v1?q={user_input}"
-                f"&key={GOOGLE_API_KEY}&cx={SEARCH_ENGINE_ID}"
+                f"https://www.googleapis.com/customsearch/v1?"
+                f"q={user_input}&key={GOOGLE_API_KEY}&cx={SEARCH_ENGINE_ID}"
             )
             res = requests.get(search_url)
             data = res.json()
 
             if "items" in data:
-                top_results = "\n".join(
-                    [f"{i+1}. {item['title']} - {item['link']}" for i, item in enumerate(data["items"][:5])]
-                )
-                return {"reply": f"Here are the top search results:\n\n{top_results}"}
-            else:
-                return {"reply": "No recent results found on Google search."}
-        except Exception as e:
-            return {"reply": f"Google Search Error: {str(e)}"}
+                top_results = []
+                for item in data["items"][:3]:
+                    top_results.append(f"📰 **{item['title']}**\n{item['snippet']}\n🔗 {item['link']}\n")
 
-    # Normal Gemini AI reply
+                joined = "\n".join(top_results)
+                return {"reply": f"Here are the latest results I found:\n\n{joined}"}
+            else:
+                return {"reply": "No fresh info found online right now."}
+        except Exception as e:
+            return {"reply": f"⚠️ Google Search Error: {str(e)}"}
+
+    # Fallback to Gemini
     try:
         model = genai.GenerativeModel("models/gemini-2.0-flash")
         response = model.generate_content(user_input)
         return {"reply": response.text}
     except Exception as e:
-        return {"reply": f"⚠️ Error: {str(e)}"}
+        return {"reply": f"⚠️ Gemini Error: {str(e)}"}
