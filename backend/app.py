@@ -44,25 +44,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 class ChatRequest(BaseModel):
     message: str
-
 
 # -------------------------
 # Helper Functions
 # -------------------------
 def google_news_hindi_top5():
-    """Fetch Top 5 Hindi news headlines."""
     try:
         feed = feedparser.parse("https://news.google.com/rss?hl=hi&gl=IN&ceid=IN:hi")
         return [entry.title for entry in feed.entries[:5]]
     except Exception:
         return None
 
-
 def google_search_snippets(query, max_results=3):
-    """Get recent snippets from Google Custom Search."""
     try:
         url = "https://www.googleapis.com/customsearch/v1"
         params = {
@@ -81,9 +76,7 @@ def google_search_snippets(query, max_results=3):
     except Exception:
         return None
 
-
 def get_weather(location):
-    """Fetch live weather data."""
     try:
         geo = requests.get(f"https://geocoding-api.open-meteo.com/v1/search?name={location}&count=1").json()
         if "results" not in geo:
@@ -99,9 +92,7 @@ def get_weather(location):
     except Exception:
         return None
 
-
 def ask_gemini(prompt):
-    """Query Gemini with fallback model handling."""
     for model_name in ["models/gemini-2.0-flash", "models/gemini-1.5-flash"]:
         try:
             model = genai.GenerativeModel(model_name)
@@ -113,13 +104,11 @@ def ask_gemini(prompt):
             continue
     return None
 
-
 def get_live_cricket():
-    """Fetch live cricket scores using Cricbuzz (public JSON endpoint)."""
     try:
         url = "https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live"
         headers = {
-            "X-RapidAPI-Key": os.getenv("RAPIDAPI_KEY", ""),  # optional key for stability
+            "X-RapidAPI-Key": os.getenv("RAPIDAPI_KEY", ""),
             "X-RapidAPI-Host": "cricbuzz-cricket.p.rapidapi.com",
         }
         res = requests.get(url, headers=headers, timeout=10)
@@ -142,14 +131,12 @@ def get_live_cricket():
     except Exception:
         return None
 
-
 # -------------------------
 # Routes
 # -------------------------
 @app.get("/")
 async def root():
     return {"message": "✅ Neelakshi AI Chatbot backend is active & real-time enabled!"}
-
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
@@ -207,8 +194,8 @@ Example:
 Hindi: जयपुर के कलेक्टर जितेन्द्र कुमार सोनी (IAS) हैं।  
 English: The Collector of Jaipur is Jitendra Kumar Soni (IAS).
 """
-answer = ask_gemini(prompt)
-return {"reply": answer or snippets}
+            answer = ask_gemini(prompt)
+            return {"reply": answer or snippets}
 
     # 5️⃣ General queries (Gemini + live context)
     snippets = google_search_snippets(user_text)
@@ -221,12 +208,9 @@ return {"reply": answer or snippets}
     answer = ask_gemini(prompt)
     return {"reply": answer or "⚠️ इस समय जानकारी उपलब्ध नहीं है, कृपया बाद में प्रयास करें।"}
 
-
 # -------------------------
 # For Render Hosting
 # -------------------------
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=10000)
-
-
