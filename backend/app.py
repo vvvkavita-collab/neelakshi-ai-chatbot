@@ -1,13 +1,3 @@
-# ============================================
-# ✅ Neelakshi AI Chatbot – Real-time & Smart v2
-# Combines:
-#   - Hindi News (RSS)
-#   - Live Cricket (Cricbuzz)
-#   - Google Custom Search (latest web info)
-#   - Gemini AI summarization
-#   - Weather (Open-Meteo)
-# ============================================
-
 import os
 import requests
 import feedparser
@@ -18,9 +8,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 import google.generativeai as genai
 
-# -------------------------
 # Load environment variables
-# -------------------------
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
@@ -31,14 +19,12 @@ if not GEMINI_API_KEY:
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-# -------------------------
 # FastAPI initialization
-# -------------------------
 app = FastAPI(title="Neelakshi AI Chatbot – Real-time Backend")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # set your frontend domain later for security
+    allow_origins=["*"],  # Replace with frontend domain for security
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,9 +33,7 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     message: str
 
-# -------------------------
-# Helper Functions
-# -------------------------
+# Helper: Top 5 Hindi news
 def google_news_hindi_top5():
     try:
         feed = feedparser.parse("https://news.google.com/rss?hl=hi&gl=IN&ceid=IN:hi")
@@ -57,6 +41,7 @@ def google_news_hindi_top5():
     except Exception:
         return None
 
+# Helper: Google Custom Search snippets
 def google_search_snippets(query, max_results=3):
     try:
         url = "https://www.googleapis.com/customsearch/v1"
@@ -76,6 +61,7 @@ def google_search_snippets(query, max_results=3):
     except Exception:
         return None
 
+# Helper: Weather via Open-Meteo
 def get_weather(location):
     try:
         geo = requests.get(f"https://geocoding-api.open-meteo.com/v1/search?name={location}&count=1").json()
@@ -92,6 +78,7 @@ def get_weather(location):
     except Exception:
         return None
 
+# Helper: Gemini fallback
 def ask_gemini(prompt):
     for model_name in ["models/gemini-2.0-flash", "models/gemini-1.5-flash"]:
         try:
@@ -104,6 +91,7 @@ def ask_gemini(prompt):
             continue
     return None
 
+# Helper: Live cricket scores
 def get_live_cricket():
     try:
         url = "https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live"
@@ -131,9 +119,7 @@ def get_live_cricket():
     except Exception:
         return None
 
-# -------------------------
 # Routes
-# -------------------------
 @app.get("/")
 async def root():
     return {"message": "✅ Neelakshi AI Chatbot backend is active & real-time enabled!"}
@@ -146,20 +132,20 @@ async def chat(req: ChatRequest):
 
     lower = user_text.lower()
 
-    # 1️⃣ Hindi News
+    # Hindi News
     if any(word in lower for word in ["news", "खबर", "headline", "समाचार", "आज की खबर"]):
         headlines = google_news_hindi_top5()
         if headlines:
             return {"reply": "🗞️ आज की टॉप 5 हिंदी खबरें:\n\n" + "\n".join([f"{i+1}. {h}" for i, h in enumerate(headlines)])}
         return {"reply": "⚠️ फिलहाल खबरें लोड नहीं हो सकीं।"}
 
-    # 2️⃣ Weather
+    # Weather
     if "weather" in lower or "मौसम" in lower:
         city = lower.replace("weather", "").replace("मौसम", "").strip() or "Delhi"
         weather_info = get_weather(city)
         return {"reply": weather_info or "⚠️ मौसम की जानकारी नहीं मिल सकी।"}
 
-    # 3️⃣ Cricket (Live)
+    # Cricket
     if any(word in lower for word in ["cricket", "match", "t20", "odi", "ipl", "series", "score"]):
         matches = get_live_cricket()
         if matches:
@@ -170,9 +156,9 @@ async def chat(req: ChatRequest):
         else:
             return {"reply": "⚠️ इस समय कोई लाइव क्रिकेट डेटा नहीं मिला।"}
 
-    # 4️⃣ Government / Location queries
+    # Location/Government queries
     if any(word in lower for word in ["collector", "district", "state", "city", "राज्य", "जिला", "कलेक्टर", "शहर"]):
-        query = user_text + " site:rajasthan.gov.in OR site:wikipedia.org"
+        query = user_text + " site:rajasthan.gov.in OR site:wikipedia.org OR site:jaipur.nic.in"
         snippets = google_search_snippets(query)
         if snippets:
             prompt = f"""
@@ -197,7 +183,7 @@ English: The Collector of Jaipur is Jitendra Kumar Soni (IAS).
             answer = ask_gemini(prompt)
             return {"reply": answer or snippets}
 
-    # 5️⃣ General queries (Gemini + live context)
+    # General queries
     snippets = google_search_snippets(user_text)
     prompt = (
         f"User question: {user_text}\n"
@@ -208,9 +194,7 @@ English: The Collector of Jaipur is Jitendra Kumar Soni (IAS).
     answer = ask_gemini(prompt)
     return {"reply": answer or "⚠️ इस समय जानकारी उपलब्ध नहीं है, कृपया बाद में प्रयास करें।"}
 
-# -------------------------
 # For Render Hosting
-# -------------------------
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=10000)
