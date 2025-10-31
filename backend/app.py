@@ -188,13 +188,28 @@ async def chat(req: ChatRequest):
         query = user_text + " site:rajasthan.gov.in OR site:wikipedia.org"
         snippets = google_search_snippets(query)
         if snippets:
-            prompt = (
-                f"User asked: {user_text}\n\n"
-                f"Web data (as of {datetime.now().strftime('%d-%B-%Y')}):\n{snippets}\n\n"
-                "Give the most recent official answer (Hindi + English)."
-            )
-            answer = ask_gemini(prompt)
-            return {"reply": answer or snippets}
+            prompt = f"""
+User asked: {user_text}
+Date: {datetime.now().strftime('%d %B %Y')}
+
+Below is the latest online info:
+{snippets}
+
+You are a fact-based AI assistant.
+👉 If the data mentions a person’s name or post (like Collector, CM, etc.), give a **clear and confident** one-line answer.
+👉 If multiple sources exist, pick the **most recent & logical** one.
+👉 Output must be in this exact format:
+
+Hindi: <short Hindi answer>  
+English: <short English answer>
+
+Example:
+Hindi: जयपुर के कलेक्टर जितेन्द्र कुमार सोनी (IAS) हैं।  
+English: The Collector of Jaipur is Jitendra Kumar Soni (IAS).
+"""
+answer = ask_gemini(prompt)
+return {"reply": answer or snippets}
+
 
     # 5️⃣ General queries (Gemini + live context)
     snippets = google_search_snippets(user_text)
@@ -214,3 +229,4 @@ async def chat(req: ChatRequest):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=10000)
+
