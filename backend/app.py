@@ -137,39 +137,46 @@ async def chat(req: ChatRequest):
 
     lower = user_text.lower()
 
-    # 1) If user requested news -> return live Hindi news (fast, working)
+    # 1️⃣ Hindi News (same as before)
     if any(k in lower for k in ["news", "खबर", "headline", "समाचार", "आज की"]):
         headlines = google_news_hindi_top5()
         if headlines:
             news_text = "\n".join([f"{i+1}. {h}" for i, h in enumerate(headlines)])
             return {"reply": f"🗞️ आज की टॉप 5 हिंदी खबरें:\n\n{news_text}"}
-        # fallback message
-        # if google news fails, continue to try search/gemini below
 
-    # 2) Try Google Custom Search for live web results (best for 'current' questions, location specifics)
-    snippets = google_search_snippets(user_text)
+    # 2️⃣ Detect special "live" topics
+    refined_query = user_text
+    if any(word in lower for word in ["match", "cricket", "t20", "odi", "ipl", "score", "series"]):
+        refined_query += " site:espncricinfo.com OR site:cricbuzz.com"
+    elif any(word in lower for word in ["weather", "मौसम"]):
+        refined_query += " site:weather.com OR site:accuweather.com OR site:imd.gov.in"
+    elif any(word in lower for word in ["election", "vote", "result", "नतीजे", "चुनाव"]):
+        refined_query += " site:indiatoday.in OR site:ndtv.com OR site:hindustantimes.com"
+    elif any(word in lower for word in ["district", "city", "state", "location", "area", "जिला", "शहर", "राज्य"]):
+        refined_query += " site:wikipedia.org OR site:india.gov.in OR site:mapsofindia.com"
+
+    # 3️⃣ Perform refined Google Search
+    snippets = google_search_snippets(refined_query)
     if snippets:
-        # Ask Gemini to summarize the snippets (if Gemini available), else return snippets directly
         prompt = (
             f"User question: {user_text}\n\n"
-            f"Recent web excerpts (from Google Custom Search):\n{snippets}\n\n"
-            "Please give a short, accurate answer based on the above, and include sources (links). "
-            "If user asked for location/district/state details, prioritize local facts from the search results."
+            f"Recent web results:\n{snippets}\n\n"
+            "Answer with the most recent and accurate information (today’s data if possible). "
+            "If you can identify the latest update or place, mention it clearly in Hindi and English both."
         )
         gemini_answer = ask_gemini(prompt)
         if gemini_answer:
             return {"reply": gemini_answer}
-        # Gemini failed -> return cleaned snippets as fallback
-        return {"reply": f"Here are the latest search snippets I found:\n\n{snippets}"}
+        return {"reply": f"Here's what I found:\n{snippets}"}
 
-    # 3) No live results -> fallback to direct Gemini answer (Gemini's internal knowledge, may be older)
+    # 4️⃣ Fallback – use Gemini directly (general questions)
     prompt = (
-        f"User question: {user_text}\n\n"
-        "Answer clearly and helpfully. If you don't know, say you don't know."
+        f"User asked: {user_text}\n"
+        "Answer clearly and briefly in the user's language."
     )
     gemini_answer = ask_gemini(prompt)
     if gemini_answer:
         return {"reply": gemini_answer}
 
-    # 4) Everything failed
-    return {"reply": "⚠️ Sorry, I couldn't fetch an answer right now. Please try again in a bit."}
+    return {"reply": "⚠️ Sorry, I couldn't fetch an answer right now. Please try again later."}
+
