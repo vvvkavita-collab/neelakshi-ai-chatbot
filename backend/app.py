@@ -1,48 +1,3 @@
-# ============================================
-# Neelakshi AI Chatbot - FastAPI + Gemini + Google Search (Fixed & Compatible)
-# ============================================
-
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from google import genai  # ✅ correct import for new SDK
-import requests
-import os
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-
-# Environment keys
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
-GOOGLE_SEARCH_ENGINE_ID = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
-
-# ✅ Configure Gemini client
-client = genai.Client(api_key=GEMINI_API_KEY)
-
-# Initialize FastAPI app
-app = FastAPI()
-
-# Allow frontend access
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # replace * with frontend URL later for security
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Request schema
-class ChatRequest(BaseModel):
-    message: str
-
-# Health check route
-@app.get("/")
-def root():
-    return {"message": "Neelakshi AI backend is running successfully!"}
-
-# Chat endpoint
 @app.post("/chat")
 def chat(request: ChatRequest):
     try:
@@ -59,17 +14,17 @@ def chat(request: ChatRequest):
         if "items" in data:
             snippets = " ".join([item["snippet"] for item in data["items"][:3]])
         else:
-            snippets = "No fresh info found online."
+            snippets = "No recent information found online."
 
-        # --- STEP 2: Ask Gemini for answer ---
+        # --- STEP 2: Ask Gemini for an answer ---
         prompt = f"""
-        User question: {user_input}
-        Latest info: {snippets}
-        Please answer accurately for the year 2025.
+        Question: {user_input}
+        Context from Google Search: {snippets}
+        Please answer accurately as of 2025 in clear, simple English.
         """
 
         result = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-1.5-flash-latest",  # ✅ Updated model name
             contents=prompt
         )
 
@@ -77,9 +32,3 @@ def chat(request: ChatRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
-
-# Run locally (Render auto runs this)
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=10000)
