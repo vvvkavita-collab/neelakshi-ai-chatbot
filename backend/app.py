@@ -2,16 +2,17 @@
 # ✅ Neelakshi AI Chatbot – Real-time & Smart version
 # Combines:
 #   - Hindi News (RSS)
-#   - Live web via Google Custom Search (auto source tuning)
-#   - Gemini AI summarization & translation
-#   - Weather API & simple live info enhancer
+#   - Live Cricket (CricAPI)
+#   - Live Web via Google Custom Search
+#   - Gemini AI summarization
+#   - Weather API (Open-Meteo)
 # ============================================
 
 import os
 import requests
 import feedparser
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import google.generativeai as genai
@@ -25,6 +26,7 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
 GOOGLE_SEARCH_ENGINE_ID = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
+CRICKET_API_KEY = os.getenv("CRICKET_API_KEY")  # 🏏 add this in Render environment
 
 if not GEMINI_API_KEY:
     raise Exception("❌ GEMINI_API_KEY missing! Add it in Render → Environment Variables.")
@@ -33,13 +35,13 @@ if not GEMINI_API_KEY:
 genai.configure(api_key=GEMINI_API_KEY)
 
 # -------------------------
-# FastAPI init
+# FastAPI Init
 # -------------------------
 app = FastAPI(title="Neelakshi AI Chatbot - Real-time Backend")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # for development; restrict later
+    allow_origins=["*"],  # you can later restrict to your frontend domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -78,12 +80,8 @@ def google_news_hindi_top5():
 
 
 def ask_gemini(prompt):
-    """Ask Gemini 2.x models safely"""
-    model_candidates = [
-        "models/gemini-2.0-flash",
-        "models/gemini-1.5-flash",
-    ]
-    for name in model_candidates:
+    """Ask Gemini safely with fallback to best model"""
+    for name in ["models/gemini-2.0-flash", "models/gemini-1.5-flash"]:
         try:
             model = genai.GenerativeModel(name)
             res = model.generate_content(prompt)
@@ -113,6 +111,47 @@ def get_weather_for(location: str):
         return None
 
 
+def get_live_cricket_info():
+    """Fetch live cricket matches using free CricAPI"""
+    if not CRICKET_API_KEY:
+        return None
+    try:
+        url = f"https://api.cricapi.com/v1/currentMatches?apikey={CRICKET_API_KEY}&offset=0"
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        matches = data.get("data", [])
+
+        live_matches = [m for m in matches if m.get("matchStarted")]
+        if not live_matches:
+            return None
+
+        # prioritize India matches
+        india_matches = [m for m in live_matches if any("India" in t for t in m.get("teams", []))]
+        match = india_matches[0] if india_matches else live_matches[0]
+
+        team1, team2 = match.get("teams", ["Team 1", "Team 2"])
+        venue = match.get("venue", "Venue not available")
+        status = match.get("status", "Status unavailable")
+
+        scores = ""
+        if match.get("score"):
+            for s in match["score"]:
+                inning = s.get("inning", "")
+                runs = s.get("r", 0)
+                wickets = s.get("w", 0)
+                overs = s.get("o", 0)
+                scores += f"{inning}: {runs}/{wickets} ({overs} ov)\n"
+
+        return (
+            f"🏏 **{team1} vs {team2}**\n"
+            f"📍 मैदान: {venue}\n"
+            f"📊 स्थिति: {status}\n"
+            f"{scores or '⏳ स्कोर उपलब्ध नहीं है।'}"
+        )
+    except Exception:
+        return None
+
+
 # -------------------------
 # Routes
 # -------------------------
@@ -129,7 +168,7 @@ async def chat(req: ChatRequest):
 
     lower = user_text.lower()
 
-    # 1️⃣ Top Hindi News
+    # 1️⃣ Hindi News
     if any(k in lower for k in ["news", "खबर", "समाचार", "headline", "आज की खबर"]):
         headlines = google_news_hindi_top5()
         if headlines:
@@ -145,34 +184,38 @@ async def chat(req: ChatRequest):
             return {"reply": weather_info}
         return {"reply": "⚠️ मौसम की जानकारी नहीं मिल सकी।"}
 
-    # 3️⃣ Cricket / Live / Match related
-    if any(word in lower for word in ["cricket", "match", "t20", "odi", "ipl", "series", "score"]):
-        refined_query = user_text + " site:espncricinfo.com OR site:cricbuzz.com"
-    # 4️⃣ Elections
-    elif any(word in lower for word in ["election", "vote", "result", "नतीजे", "चुनाव"]):
-        refined_query = user_text + " site:indiatoday.in OR site:ndtv.com"
-    # 5️⃣ Location / City / State
-    elif any(word in lower for word in ["district", "city", "state", "location", "area", "जिला", "शहर", "राज्य"]):
-        refined_query = user_text + " site:wikipedia.org OR site:india.gov.in OR site:mapsofindia.com"
-    else:
-        refined_query = user_text
+    # 3️⃣ Cricket Queries
+    if any(word in lower for word in ["cricket", "match", "t20", "odi", "ipl", "series", "score", "भारत", "इंडिया"]):
+        live_info = get_live_cricket_info()
+        if live_info:
+            return {"reply": live_info}
 
-    # 6️⃣ Search online (Google Custom Search)
+    # 4️⃣ Search Web if not live
+    refined_query = user_text
+    if any(word in lower for word in ["match", "cricket", "t20", "odi", "ipl", "series"]):
+        refined_query += " site:espncricinfo.com OR site:cricbuzz.com"
+    elif any(word in lower for word in ["weather", "मौसम"]):
+        refined_query += " site:weather.com OR site:accuweather.com"
+    elif any(word in lower for word in ["election", "vote", "result", "नतीजे", "चुनाव"]):
+        refined_query += " site:indiatoday.in OR site:ndtv.com"
+    elif any(word in lower for word in ["district", "city", "state", "location", "area", "जिला", "शहर", "राज्य"]):
+        refined_query += " site:wikipedia.org OR site:india.gov.in"
+
     snippets = google_search_snippets(refined_query)
     if snippets:
         prompt = (
             f"User question: {user_text}\n"
             f"Today's date: {datetime.now().strftime('%d %B %Y')}\n\n"
-            f"Recent online information:\n{snippets}\n\n"
-            "Give a current, fact-based and location-aware answer in Hindi if question is Hindi, otherwise English."
+            f"Recent information:\n{snippets}\n\n"
+            "Answer accurately and up-to-date. If Hindi question, reply in Hindi."
         )
         gemini_reply = ask_gemini(prompt)
         if gemini_reply:
             return {"reply": gemini_reply}
-        return {"reply": f"Here's what I found online:\n{snippets}"}
+        return {"reply": snippets}
 
-    # 7️⃣ Fallback (Gemini reasoning)
-    prompt = f"User asked: {user_text}\nAnswer clearly and helpfully in Hindi/English as per question."
+    # 5️⃣ Fallback (Gemini)
+    prompt = f"User asked: {user_text}\nAnswer clearly in Hindi/English depending on question."
     gemini_reply = ask_gemini(prompt)
     if gemini_reply:
         return {"reply": gemini_reply}
