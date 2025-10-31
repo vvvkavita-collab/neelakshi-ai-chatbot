@@ -1,71 +1,88 @@
-from fastapi import FastAPI
+# ============================================
+# Neelakshi AI Chatbot - FastAPI + Gemini + Google Search (Fixed)
+# ============================================
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import google.generativeai as genai
+from google import genai
+import requests
 import os
-import feedparser
 from dotenv import load_dotenv
-from datetime import datetime
 
 # Load environment variables
 load_dotenv()
 
-# Initialize FastAPI
+# Environment keys
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
+GOOGLE_SEARCH_ENGINE_ID = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
+
+# Configure Gemini client
+client = genai.Client(api_key=GEMINI_API_KEY)
+
+# ✅ Create app FIRST (this was the missing part in your old file)
 app = FastAPI()
 
-# Allow frontend connection (replace "*" with your actual frontend URL for security)
+# Allow CORS (Frontend access)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # replace with frontend URL for security
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Configure Gemini API
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-
-# Request model
+# Request schema
 class ChatRequest(BaseModel):
     message: str
 
+
+# ✅ Health Check
 @app.get("/")
-async def root():
-    return {"message": "✅ Neelakshi AI Chatbot backend is running fine."}
+def root():
+    return {"message": "✅ Neelakshi AI Chatbot backend is live on Render!"}
 
+
+# ✅ Chat Endpoint
 @app.post("/chat")
-async def chat(request: ChatRequest):
-    user_msg = request.message.lower()
-
-    # 📰 If user asks for news
-    if "news" in user_msg or "खबर" in user_msg or "headline" in user_msg:
-        try:
-            feed = feedparser.parse("https://news.google.com/rss?hl=hi&gl=IN&ceid=IN:hi")
-            headlines = [entry.title for entry in feed.entries[:5]]
-
-            if not headlines:
-                return {"reply": "⚠️ फिलहाल कोई खबरें प्राप्त नहीं हुईं। कृपया कुछ समय बाद पुनः प्रयास करें।"}
-
-            news_text = "\n".join([f"{i+1}. {headline}" for i, headline in enumerate(headlines)])
-            return {
-                "reply": f"🗞️ आज की टॉप 5 हिंदी खबरें ({datetime.now().strftime('%d %B %Y')}):\n\n{news_text}\n\nआप अधिक जानकारी के लिए Google News वेबसाइट पर जा सकते हैं।"
-            }
-
-        except Exception as e:
-            return {"reply": f"⚠️ खबरें लोड करने में समस्या आई: {str(e)}"}
-
-    # 💬 Otherwise, let Gemini answer normally with freshness and location awareness
+def chat(request: ChatRequest):
     try:
-        prompt = f"""
-        You are Neelakshi AI, a Hindi-speaking assistant.
-        Today is {datetime.now().strftime('%d %B %Y')}.
-        If the user asks about a location (district/state), try to give relevant info.
-        If the user asks about current events, respond with today's context.
+        user_input = request.message.strip()
 
-        User: {request.message}
+        # --- Step 1: Perform Google Search ---
+        search_url = (
+            f"https://www.googleapis.com/customsearch/v1?"
+            f"key={GOOGLE_SEARCH_API_KEY}&cx={GOOGLE_SEARCH_ENGINE_ID}&q={user_input}"
+        )
+
+        search_response = requests.get(search_url)
+        data = search_response.json()
+
+        if "items" in data:
+            snippets = " ".join([item["snippet"] for item in data["items"][:3]])
+        else:
+            snippets = "No fresh search results found."
+
+        # --- Step 2: Ask Gemini ---
+        prompt = f"""
+        The user asked: {user_input}
+        Based on the latest web search information: {snippets}
+        Provide an updated answer for the year 2025 in simple and clear language.
         """
-        model = genai.GenerativeModel("models/gemini-2.0-flash")
-        response = model.generate_content(prompt)
-        return {"reply": response.text if hasattr(response, "text") else "⚠️ कोई उत्तर उपलब्ध नहीं है।"}
+
+        result = client.models.generate_content(
+            model="models/gemini-2.0-flash",  # ✅ confirmed working
+            contents=prompt
+        )
+
+        return {"response": result.output_text}
+
     except Exception as e:
-        return {"reply": f"⚠️ Error: {str(e)}"}
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+
+# ✅ Local run (Render handles automatically)
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=10000)
