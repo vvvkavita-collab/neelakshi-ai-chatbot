@@ -210,7 +210,6 @@ English: The Collector of Jaipur is Jitendra Kumar Soni (IAS).
 answer = ask_gemini(prompt)
 return {"reply": answer or snippets}
 
-
     # 5️⃣ General queries (Gemini + live context)
     snippets = google_search_snippets(user_text)
     prompt = (
@@ -229,4 +228,5 @@ return {"reply": answer or snippets}
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=10000)
+
 
