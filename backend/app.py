@@ -1,11 +1,11 @@
 # ============================================
-# Neelakshi AI Chatbot - FastAPI + Gemini + Google Search
+# Neelakshi AI Chatbot - FastAPI + Gemini + Google Search (Fixed Version)
 # ============================================
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import google.generativeai as genai
+from google import genai  # ✅ updated import
 import requests
 import os
 from dotenv import load_dotenv
@@ -18,8 +18,8 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
 GOOGLE_SEARCH_ENGINE_ID = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
 
-# Configure Gemini
-genai.configure(api_key=GEMINI_API_KEY)
+# ✅ Configure Gemini client
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -27,7 +27,7 @@ app = FastAPI()
 # Allow frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace with frontend URL for better security
+    allow_origins=["*"],  # replace * with your frontend URL later for security
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -40,7 +40,7 @@ class ChatRequest(BaseModel):
 # Health check route
 @app.get("/")
 def root():
-    return {"message": "Neelakshi AI backend is running!"}
+    return {"message": "Neelakshi AI backend is running successfully!"}
 
 # Chat endpoint
 @app.post("/chat")
@@ -53,27 +53,35 @@ def chat(request: ChatRequest):
             f"https://www.googleapis.com/customsearch/v1?"
             f"key={GOOGLE_SEARCH_API_KEY}&cx={GOOGLE_SEARCH_ENGINE_ID}&q={user_input}"
         )
-
         search_response = requests.get(search_url)
         data = search_response.json()
 
+        snippets = ""
         if "items" in data:
             snippets = " ".join([item["snippet"] for item in data["items"][:3]])
         else:
-            snippets = "No latest data found online."
+            snippets = "No fresh info found online right now."
 
         # --- STEP 2: Ask Gemini to summarize answer ---
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        prompt = f"User asked: {user_input}\nBased on web search: {snippets}\nAnswer in simple language."
-        response = model.generate_content(prompt)
+        prompt = f"""
+        User question: {user_input}
+        Latest online info: {snippets}
+        Please answer briefly and accurately for the year 2025.
+        """
 
-        return {"response": response.text}
+        # ✅ Correct model name (new API expects this format)
+        result = client.models.generate_content(
+            model="gemini-1.5-flash",  # <-- fixed
+            contents=prompt
+        )
+
+        return {"response": result.output_text}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 
-# Run the app (Render auto handles uvicorn)
+# Run locally (Render uses this automatically)
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=10000)
