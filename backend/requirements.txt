@@ -1,9 +1,5 @@
 fastapi
-uvicorn[standard]
+uvicorn
 python-dotenv
-google-generativeai
 requests
-beautifulsoup4
-lxml
-html5lib
-feedparser
+google-genai>=0.1.0
