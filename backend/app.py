@@ -12,36 +12,34 @@ import os
 import requests
 import feedparser
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import google.generativeai as genai
 from datetime import datetime
+import re
+import html
 
-# -------------------------
-# Load environment variables
-# -------------------------
+# Load .env locally; Render uses environment variables
 load_dotenv()
 
+# Environment
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
 GOOGLE_SEARCH_ENGINE_ID = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
-CRICKET_API_KEY = os.getenv("CRICKET_API_KEY")  # 🏏 add this in Render environment
+CRICKET_API_KEY = os.getenv("CRICKET_API_KEY")  # optional: cricapi.com key
 
 if not GEMINI_API_KEY:
-    raise Exception("❌ GEMINI_API_KEY missing! Add it in Render → Environment Variables.")
+    raise Exception("GEMINI_API_KEY missing. Add it in environment variables.")
 
 # Configure Gemini
 genai.configure(api_key=GEMINI_API_KEY)
 
-# -------------------------
-# FastAPI Init
-# -------------------------
+# FastAPI init
 app = FastAPI(title="Neelakshi AI Chatbot - Real-time Backend")
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # you can later restrict to your frontend domain
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -50,12 +48,10 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     message: str
 
-
 # -------------------------
-# Helper Functions
+# Helpers
 # -------------------------
 def google_search_snippets(query, max_results=3):
-    """Fetch small snippets using Google Custom Search API"""
     if not GOOGLE_SEARCH_API_KEY or not GOOGLE_SEARCH_ENGINE_ID:
         return None
     try:
@@ -64,24 +60,24 @@ def google_search_snippets(query, max_results=3):
         resp = requests.get(url, params=params, timeout=8)
         data = resp.json()
         if "items" in data:
-            return " ".join([f"{item['title']}: {item['snippet']}" for item in data["items"][:max_results]])
+            return " \n".join([f"{item.get('title','')}: {item.get('snippet','')}" for item in data["items"][:max_results]])
     except Exception:
         return None
     return None
 
-
 def google_news_hindi_top5():
-    """Fetch Top 5 Hindi headlines"""
     try:
         feed = feedparser.parse("https://news.google.com/rss?hl=hi&gl=IN&ceid=IN:hi")
         return [entry.title for entry in feed.entries[:5]]
     except Exception:
         return None
 
-
 def ask_gemini(prompt):
-    """Ask Gemini safely with fallback to best model"""
-    for name in ["models/gemini-2.0-flash", "models/gemini-1.5-flash"]:
+    model_candidates = [
+        "models/gemini-2.0-flash",
+        "models/gemini-1.5-flash",
+    ]
+    for name in model_candidates:
         try:
             model = genai.GenerativeModel(name)
             res = model.generate_content(prompt)
@@ -92,17 +88,15 @@ def ask_gemini(prompt):
             continue
     return None
 
-
 def get_weather_for(location: str):
-    """Get live weather via Open-Meteo API"""
     try:
-        geo = requests.get(f"https://geocoding-api.open-meteo.com/v1/search?name={location}&count=1").json()
+        geo = requests.get(f"https://geocoding-api.open-meteo.com/v1/search?name={location}&count=1", timeout=6).json()
         if "results" not in geo:
             return None
         lat = geo["results"][0]["latitude"]
         lon = geo["results"][0]["longitude"]
         weather = requests.get(
-            f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
+            f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true", timeout=6
         ).json()
         temp = weather["current_weather"]["temperature"]
         wind = weather["current_weather"]["windspeed"]
@@ -110,55 +104,69 @@ def get_weather_for(location: str):
     except Exception:
         return None
 
+# ------------ Cricket helpers ------------
+def normalize_team_name(s: str):
+    return re.sub(r'[^a-z0-9 ]', '', s.lower()).strip()
 
-def get_live_cricket_info():
-    """Fetch live cricket matches using free CricAPI"""
+def parse_match_teams(user_text: str):
+    """
+    Try to extract 'TeamA vs TeamB' or 'TeamA v TeamB' pattern.
+    Returns tuple (teamA, teamB) or (None, None).
+    """
+    text = user_text.replace("vs.", "vs").replace("v.", "v")
+    # common separators: vs, v, versus
+    m = re.search(r'([A-Za-z ]{2,50})\s+(?:vs|v|versus|vs\.|v\.)\s+([A-Za-z ]{2,50})', text, flags=re.I)
+    if m:
+        a = m.group(1).strip()
+        b = m.group(2).strip()
+        return a, b
+    return None, None
+
+def get_live_cricket_from_cricapi(query_teamA, query_teamB):
+    """
+    Use CricAPI (if key provided) to find matches that contain both teams (case-insensitive).
+    Returns formatted string or None.
+    """
     if not CRICKET_API_KEY:
         return None
     try:
-        url = f"https://api.cricapi.com/v1/currentMatches?apikey={CRICKET_API_KEY}&offset=0"
-        response = requests.get(url, timeout=10)
-        data = response.json()
-        matches = data.get("data", [])
-
-        live_matches = [m for m in matches if m.get("matchStarted")]
-        if not live_matches:
-            return None
-
-        # prioritize India matches
-        india_matches = [m for m in live_matches if any("India" in t for t in m.get("teams", []))]
-        match = india_matches[0] if india_matches else live_matches[0]
-
-        team1, team2 = match.get("teams", ["Team 1", "Team 2"])
-        venue = match.get("venue", "Venue not available")
-        status = match.get("status", "Status unavailable")
-
-        scores = ""
-        if match.get("score"):
-            for s in match["score"]:
-                inning = s.get("inning", "")
-                runs = s.get("r", 0)
-                wickets = s.get("w", 0)
-                overs = s.get("o", 0)
-                scores += f"{inning}: {runs}/{wickets} ({overs} ov)\n"
-
-        return (
-            f"🏏 **{team1} vs {team2}**\n"
-            f"📍 मैदान: {venue}\n"
-            f"📊 स्थिति: {status}\n"
-            f"{scores or '⏳ स्कोर उपलब्ध नहीं है।'}"
-        )
+        # get list of matches
+        resp = requests.get("https://cricapi.com/api/matches", params={"apikey": CRICKET_API_KEY}, timeout=8)
+        data = resp.json()
+        matches = data.get("matches") or data.get("data") or []
+        teamA_norm = normalize_team_name(query_teamA)
+        teamB_norm = normalize_team_name(query_teamB)
+        # find the best match
+        for m in matches:
+            # look in 'team-1', 'team-2', 'team1', 'team2', 'squad', 'title' etc.
+            title = " ".join([str(m.get(k, "")) for k in ["team-1", "team-2", "team1", "team2", "squad", "title"]])
+            title_norm = normalize_team_name(title)
+            if teamA_norm in title_norm and teamB_norm in title_norm:
+                # get unique id to fetch score
+                uid = m.get("unique_id") or m.get("uniqueId") or m.get("id")
+                # get score
+                if uid:
+                    score_resp = requests.get("https://cricapi.com/api/cricketScore", params={"apikey": CRICKET_API_KEY, "unique_id": uid}, timeout=8)
+                    score_data = score_resp.json()
+                    # format
+                    desc = score_data.get("description") or score_data.get("score") or score_data.get("stat") or ""
+                    match = m.get("date") or m.get("dateTimeGMT") or ""
+                    venue = m.get("venue") or m.get("place") or ""
+                    title_text = m.get("title") or title
+                    out = f"🏏 {html.escape(title_text)}\n📍 {venue}\n{desc}"
+                    return out
+        return None
     except Exception:
         return None
 
+# ----------------------------------------
 
 # -------------------------
 # Routes
 # -------------------------
 @app.get("/")
 async def root():
-    return {"message": "✅ Neelakshi AI Chatbot backend is running fine!"}
-
+    return {"message": "Neelakshi AI Chatbot backend is running!"}
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
@@ -168,14 +176,14 @@ async def chat(req: ChatRequest):
 
     lower = user_text.lower()
 
-    # 1️⃣ Hindi News
+    # Top Hindi News
     if any(k in lower for k in ["news", "खबर", "समाचार", "headline", "आज की खबर"]):
         headlines = google_news_hindi_top5()
         if headlines:
             return {"reply": "🗞️ आज की टॉप 5 हिंदी खबरें:\n\n" + "\n".join([f"{i+1}. {h}" for i, h in enumerate(headlines)])}
         return {"reply": "⚠️ फिलहाल खबरें प्राप्त नहीं हो सकीं।"}
 
-    # 2️⃣ Weather Queries
+    # Weather Queries
     if "weather" in lower or "मौसम" in lower:
         words = lower.replace("weather", "").replace("मौसम", "").strip()
         location = words if words else "Delhi"
@@ -184,48 +192,94 @@ async def chat(req: ChatRequest):
             return {"reply": weather_info}
         return {"reply": "⚠️ मौसम की जानकारी नहीं मिल सकी।"}
 
-    # 3️⃣ Cricket Queries
-    if any(word in lower for word in ["cricket", "match", "t20", "odi", "ipl", "series", "score", "भारत", "इंडिया"]):
-        live_info = get_live_cricket_info()
-        if live_info:
-            return {"reply": live_info}
+    # Cricket / Live / Match related: first try to parse explicit teams
+    if any(word in lower for word in ["cricket", "match", "t20", "odi", "ipl", "series", "score", "vs", "v", "versus"]):
+        teamA, teamB = parse_match_teams(user_text)
+        # if we detected two teams explicitly, prefer cricket API exact match
+        if teamA and teamB:
+            # try API first
+            api_result = get_live_cricket_from_cricapi(teamA, teamB)
+            if api_result:
+                return {"reply": api_result}
+            # if API not available / no match, use exact-phrase Google search
+            exact_phrase = f"\"{teamA} vs {teamB}\" site:espncricinfo.com OR site:cricbuzz.com"
+            snippets = google_search_snippets(exact_phrase, max_results=3)
+            if snippets:
+                # ask Gemini to condense
+                prompt = (
+                    f"User question: {user_text}\n\n"
+                    f"Exact-match web search results:\n{snippets}\n\n"
+                    "Provide a short, factual live match answer (score, venue, status). If uncertain, say 'No live match found'."
+                )
+                gemini_reply = ask_gemini(prompt)
+                if gemini_reply:
+                    return {"reply": gemini_reply}
+                return {"reply": f"Here's what I found matched exact phrase:\n{snippets}"}
+            # fallback: broad cricket search
+            refined_query = user_text + " site:espncricinfo.com OR site:cricbuzz.com"
+        else:
+            # no explicit teams parsed; do generic cricket site search
+            refined_query = user_text + " site:espncricinfo.com OR site:cricbuzz.com"
 
-    # 4️⃣ Search Web if not live
+        # do google search for refined query
+        snippets = google_search_snippets(refined_query)
+        if snippets:
+            prompt = (
+                f"User question: {user_text}\nToday's date: {datetime.now().strftime('%d %B %Y')}\n"
+                f"Recent cricket web info:\n{snippets}\n\nAnswer concisely with score/status/venue if possible."
+            )
+            gemini_reply = ask_gemini(prompt)
+            if gemini_reply:
+                return {"reply": gemini_reply}
+            return {"reply": f"Here's what I found online:\n{snippets}"}
+
+    # Elections
+    if any(word in lower for word in ["election", "vote", "result", "नतीजे", "चुनाव"]):
+        refined_query = user_text + " site:indiatoday.in OR site:ndtv.com"
+        snippets = google_search_snippets(refined_query)
+        if snippets:
+            prompt = f"User: {user_text}\nWeb results:\n{snippets}\nAnswer briefly."
+            gemini_reply = ask_gemini(prompt)
+            if gemini_reply:
+                return {"reply": gemini_reply}
+            return {"reply": snippets}
+
+    # Location / City / State / Official queries
+    if any(word in lower for word in ["district", "city", "state", "location", "area", "जिला", "शहर", "राज्य", "collector", "dm"]):
+        # attempt to prefer government/wikipedia sites
+        refined_query = user_text + " site:india.gov.in OR site:wikipedia.org OR site:gov.in"
+        snippets = google_search_snippets(refined_query)
+        if snippets:
+            prompt = f"User: {user_text}\nWeb results:\n{snippets}\nPlease answer with the most authoritative info (gov sources) and mention source."
+            gemini_reply = ask_gemini(prompt)
+            if gemini_reply:
+                return {"reply": gemini_reply}
+            return {"reply": snippets}
+
+    # General online search (fallback)
     refined_query = user_text
-    if any(word in lower for word in ["match", "cricket", "t20", "odi", "ipl", "series"]):
-        refined_query += " site:espncricinfo.com OR site:cricbuzz.com"
-    elif any(word in lower for word in ["weather", "मौसम"]):
-        refined_query += " site:weather.com OR site:accuweather.com"
-    elif any(word in lower for word in ["election", "vote", "result", "नतीजे", "चुनाव"]):
-        refined_query += " site:indiatoday.in OR site:ndtv.com"
-    elif any(word in lower for word in ["district", "city", "state", "location", "area", "जिला", "शहर", "राज्य"]):
-        refined_query += " site:wikipedia.org OR site:india.gov.in"
-
     snippets = google_search_snippets(refined_query)
     if snippets:
         prompt = (
-            f"User question: {user_text}\n"
-            f"Today's date: {datetime.now().strftime('%d %B %Y')}\n\n"
-            f"Recent information:\n{snippets}\n\n"
-            "Answer accurately and up-to-date. If Hindi question, reply in Hindi."
+            f"User question: {user_text}\nToday's date: {datetime.now().strftime('%d %B %Y')}\n"
+            f"Recent online information:\n{snippets}\n\nAnswer in clear Hindi/English as appropriate."
         )
         gemini_reply = ask_gemini(prompt)
         if gemini_reply:
             return {"reply": gemini_reply}
-        return {"reply": snippets}
+        return {"reply": f"Here's what I found online:\n{snippets}"}
 
-    # 5️⃣ Fallback (Gemini)
-    prompt = f"User asked: {user_text}\nAnswer clearly in Hindi/English depending on question."
+    # Final fallback: Gemini alone
+    prompt = f"User asked: {user_text}\nAnswer clearly and helpfully in Hindi/English as per the question."
     gemini_reply = ask_gemini(prompt)
     if gemini_reply:
         return {"reply": gemini_reply}
 
     return {"reply": "⚠️ मैं इस समय सटीक जानकारी प्राप्त नहीं कर पा रही हूँ। कृपया बाद में प्रयास करें।"}
 
-
-# -------------------------
-# For Render
-# -------------------------
+# For Render / local run
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=10000)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 10000)))
+
+
