@@ -1,6 +1,6 @@
 // ===============================
 // Neelakshi AI Chatbot (Frontend)
-// ChatGPT-style UI
+// ChatGPT-style UI - Complete Code
 // ===============================
 
 const chatBox = document.getElementById("chat-box");
@@ -9,6 +9,7 @@ const sendBtn = document.getElementById("send-btn");
 const historyList = document.getElementById("history");
 
 let history = [];
+let chatHistory = []; // This holds the full chat for backend context
 
 // Add message to chat
 function appendMessage(sender, text) {
@@ -18,9 +19,9 @@ function appendMessage(sender, text) {
   const bubble = document.createElement("div");
   bubble.classList.add("bubble");
 
-  // Markdown-style formatting
+  // Markdown-style formatting (basic)
   let html = text
-    .replace(/```([\s\S]*?)```/g, "<pre><code>$1</code></pre>")
+    .replace(/``````/g, "<pre><code>$1</code></pre>")
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.*?)\*/g, "<em>$1</em>")
     .replace(/`(.*?)`/g, "<code>$1</code>")
@@ -32,7 +33,7 @@ function appendMessage(sender, text) {
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// Send message to backend
+// Send message to backend (corrected for messages array)
 async function sendMessage() {
   const text = userInput.value.trim();
   if (!text) return;
@@ -41,15 +42,22 @@ async function sendMessage() {
   userInput.value = "";
   userInput.style.height = "45px"; // reset height
 
+  // Maintain entire chat history for context
+  chatHistory.push({ role: "user", content: text });
+
   try {
     const response = await fetch("https://neelakshi-ai-chatbot.onrender.com/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text }),
+      body: JSON.stringify({ messages: chatHistory }),
     });
 
     const data = await response.json();
     appendMessage("bot", data.reply);
+
+    // Add bot reply to chatHistory for continuity
+    chatHistory.push({ role: "assistant", content: data.reply });
+
     saveToHistory(text, data.reply);
   } catch (error) {
     appendMessage("bot", "⚠️ Error: Unable to connect to server.");
