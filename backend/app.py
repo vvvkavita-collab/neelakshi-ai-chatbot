@@ -1,12 +1,4 @@
-# app.py
-# Neelakshi AI Chatbot - unified real-time backend
-# Uses: Google Custom Search, Google News RSS (Hindi), Open-Meteo, RapidAPI (Cricbuzz), Gemini summarization
-# Env variables required (set locally in .env or in Render secrets):
-#   GEMINI_API_KEY
-#   GOOGLE_SEARCH_API_KEY
-#   GOOGLE_SEARCH_ENGINE_ID
-#   RAPIDAPI_KEY   (optional - required only for live cricket)
-# Install requirements in requirements.txt below.
+# app.py (Improved for ChatGPT-like experience)
 
 import os
 import requests
@@ -17,7 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-# try to import google generative AI client
 try:
     import google.generativeai as genai
     HAS_GENAI = True
@@ -25,29 +16,24 @@ except Exception:
     genai = None
     HAS_GENAI = False
 
-# Load .env (for local testing)
 load_dotenv()
 
-# ---------- Environment ----------
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
 GOOGLE_SEARCH_ENGINE_ID = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")  # optional
 
-# configure genai if available and key present
 if HAS_GENAI and GEMINI_API_KEY:
     try:
         genai.configure(api_key=GEMINI_API_KEY)
     except Exception:
-        # continue without raising here to keep service alive; ask_gemini will handle
         pass
 
-# ---------- FastAPI ----------
 app = FastAPI(title="Neelakshi AI Chatbot - Real-time backend")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # narrow this to your frontend URL in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,10 +42,7 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     message: str
 
-# ---------- Helpers ----------
-
 def google_news_hindi_top5():
-    """Return list of top 5 Hindi headlines (Google News RSS)."""
     try:
         feed = feedparser.parse("https://news.google.com/rss?hl=hi&gl=IN&ceid=IN:hi")
         return [entry.title for entry in feed.entries[:5]] if feed and feed.entries else None
@@ -67,7 +50,6 @@ def google_news_hindi_top5():
         return None
 
 def google_search_snippets(query: str, max_results: int = 3):
-    """Return a combined snippet string using Google Custom Search (if keys present)."""
     if not GOOGLE_SEARCH_API_KEY or not GOOGLE_SEARCH_ENGINE_ID:
         return None
     try:
@@ -93,7 +75,6 @@ def google_search_snippets(query: str, max_results: int = 3):
         return None
 
 def get_weather(location: str):
-    """Return simple weather string using Open-Meteo geocoding + current weather."""
     try:
         if not location:
             return None
@@ -111,7 +92,6 @@ def get_weather(location: str):
         return None
 
 def get_live_cricket_rapidapi():
-    """Fetch live matches from Cricbuzz RapidAPI (if RAPIDAPI_KEY provided)."""
     if not RAPIDAPI_KEY:
         return None
     try:
@@ -122,7 +102,6 @@ def get_live_cricket_rapidapi():
         }
         r = requests.get(url, headers=headers, timeout=10)
         data = r.json()
-        # Parse like earlier code: gather first few matches
         matches = []
         for section in data.get("typeMatches", []):
             for seriesBlock in section.get("seriesMatches", []):
@@ -144,22 +123,18 @@ def get_live_cricket_rapidapi():
         return None
 
 def ask_gemini(prompt: str):
-    """Ask Gemini models (if available) and return text or None."""
     if not HAS_GENAI or not GEMINI_API_KEY:
         return None
-    # try a list of likely supported models; be defensive.
     candidates = ["models/gemini-2.5-flash", "models/gemini-2.1", "models/gemini-2.0-flash", "models/gemini-1.5-flash"]
     last_err = None
     for model_name in candidates:
         try:
             model = genai.GenerativeModel(model_name)
             response = model.generate_content(prompt)
-            # many SDK shapes: .text, .choices etc.
             if hasattr(response, "text") and response.text:
                 return response.text.strip()
             if hasattr(response, "choices") and response.choices:
                 first = response.choices[0]
-                # try to extract message/content
                 if hasattr(first, "message") and getattr(first.message, "content", None):
                     return first.message.content
                 return str(first)
@@ -167,11 +142,9 @@ def ask_gemini(prompt: str):
         except Exception as e:
             last_err = e
             continue
-    # as last resort return None
     return None
 
 def make_bilingual(hindi_text: str = None, english_text: str = None):
-    """Return combined bilingual answer (prefer Hindi then English)."""
     if hindi_text and english_text:
         return f"Hindi: {hindi_text}\n\nEnglish: {english_text}"
     if hindi_text:
@@ -179,8 +152,6 @@ def make_bilingual(hindi_text: str = None, english_text: str = None):
     if english_text:
         return f"English: {english_text}"
     return None
-
-# ---------- Routes ----------
 
 @app.get("/")
 async def root():
@@ -200,38 +171,36 @@ async def chat(req: ChatRequest):
     user_text = (req.message or "").strip()
     if not user_text:
         raise HTTPException(status_code=400, detail="Empty message")
-
     lower = user_text.lower()
-
-    # 1. News requests (Hindi top 5)
+    # 1. News (Hindi headlines)
     if any(k in lower for k in ["news", "खबर", "समाचार", "headline", "आज की"]):
         headlines = google_news_hindi_top5()
         if headlines:
             return {"reply": "🗞️ आज की टॉप 5 हिंदी खबरें:\n\n" + "\n".join([f"{i+1}. {h}" for i, h in enumerate(headlines)])}
+        # FALLBACK: LLM style
+        gemini_ans = ask_gemini(f"User asked for today's news in Hindi: {user_text}")
+        if gemini_ans:
+            return {"reply": gemini_ans}
         return {"reply": "⚠️ फिलहाल खबरें प्राप्त नहीं हो सकीं।"}
-
     # 2. Weather
     if "weather" in lower or "मौसम" in lower:
-        # extract location roughly
         loc = user_text.replace("weather", "").replace("मौसम", "").strip()
         loc = loc if loc else "Delhi"
         w = get_weather(loc)
         if w:
             return {"reply": w}
+        gemini_ans = ask_gemini(f"User asked for weather details for '{loc}'. Reply for Indian general audience.")
+        if gemini_ans:
+            return {"reply": gemini_ans}
         return {"reply": "⚠️ मौसम की जानकारी प्राप्त नहीं हो सकी। कृपया स्थान स्पष्ट करें।"}
-
-    # 3. Cricket / live scores / schedule
+    # 3. Cricket
     if any(w in lower for w in ["cricket", "match", "t20", "odi", "score", "series", "fixture", "ipl"]):
-        # Try live RapidAPI first (if configured)
         live = get_live_cricket_rapidapi()
         if live:
-            # format succinctly
             formatted = []
             for m in live:
                 formatted.append(f"🏏 {m['teams']}\n📍 {m['venue']}\n📊 {m['status']}")
             return {"reply": "\n\n".join(formatted)}
-
-        # Fallback: use Google Search + Gemini to extract result/schedule
         refined = user_text + " site:espncricinfo.com OR site:cricbuzz.com OR site:bbc.com/sport/cricket"
         snippets = google_search_snippets(refined, max_results=4)
         if snippets:
@@ -245,12 +214,13 @@ async def chat(req: ChatRequest):
             if ans:
                 return {"reply": ans}
             return {"reply": "🔍 रिजल्ट: " + snippets}
+        # fallback to chat mode
+        gemini_ans = ask_gemini(f"The user asked this cricket-related question: '{user_text}'. Give your best generic ChatGPT-like answer in English and Hindi.")
+        if gemini_ans:
+            return {"reply": gemini_ans}
         return {"reply": "⚠️ लाइव या हालिया क्रिकेट जानकारी नहीं मिली।"}
-
-    # 4. Government / collector / district / local authority queries
+    # 4. Authority/Collector/government queries
     if any(w in lower for w in ["collector", "जिला", "कलेक्टर", "district", "collector of", "who is collector", "who is the collector"]):
-        # refine search to official/local sites
-        # include the user_text and favor government sites
         q = f"{user_text} site:gov.in OR site:nic.in OR site:wikipedia.org"
         snippets = google_search_snippets(q, max_results=4)
         if snippets:
@@ -263,22 +233,28 @@ async def chat(req: ChatRequest):
             ans = ask_gemini(prompt)
             if ans:
                 return {"reply": ans}
-            return {"reply": "🔍 उपलब्ध स्रोत:\n" + snippets}
+            return {"reply": f"🔍 उपलब्ध स्रोत:\n{snippets}"}
+        gemini_ans = ask_gemini(f"The user asked: '{user_text}'. Try to infer or explain about the role of collector in India, in Hindi and English.")
+        if gemini_ans:
+            return {"reply": gemini_ans}
         return {"reply": "⚠️ इस विषय पर पर्याप्त सार्वजनिक जानकारी उपलब्ध नहीं है।"}
-
-    # 5. General search -> use Google search snippets then Gemini summarization
+    # 5. General: search if possible, or LLM always
     snippets = google_search_snippets(user_text, max_results=4)
     prompt = (
         f"User question: {user_text}\n"
         f"Today's date: {datetime.now().strftime('%d %B %Y')}\n\n"
         f"Recent web information (if any):\n{snippets}\n\n"
-        "Answer concisely. If the user asked in Hindi, reply in Hindi (and include English). If in English, reply in English (and include Hindi)."
+        "Answer concisely, like ChatGPT, with deep general knowledge, reasoning, and conversation. If the user asked in Hindi, reply in Hindi (include English). If in English, reply in both English and Hindi."
     )
     gemini_ans = ask_gemini(prompt)
     if gemini_ans:
         return {"reply": gemini_ans}
-
-    # final fallback
+    # fallback if LLM fails
     if snippets:
         return {"reply": "🔍 उपलब्ध जानकारी:\n" + snippets}
-    return {"reply": "⚠️ मुझे अभी उत्तर उपलब्ध नहीं है — कृपया प्रश्न और अधिक स्पष्ट करें या बाद में पुनः प्रयास करें।"}
+    # FINAL HARD fallback
+    generic = ask_gemini(f"You are an assistant. The user asked: '{user_text}'. Chat normally with general reasoning.")
+    if generic:
+        return {"reply": generic}
+    return {"reply": "⚠️ मुझे अभी उत्तर उपलब्ध नहीं है — कृपया प्रश्न अधिक स्पष्ट करें या बाद में प्रयास करें।"}
+
