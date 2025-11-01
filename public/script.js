@@ -1,6 +1,5 @@
 // ===============================
-// Neelakshi AI Chatbot (Frontend)
-// ChatGPT-style UI - Complete Code
+// Neelakshi AI Chatbot (Frontend - JavaScript)
 // ===============================
 
 const chatBox = document.getElementById("chat-box");
@@ -9,12 +8,11 @@ const sendBtn = document.getElementById("send-btn");
 const historyList = document.getElementById("history");
 
 let history = [];
-let chatHistory = []; // Yeh pura conversation context backend ko jane ke liye
+let chatHistory = [];
 
 function appendMessage(sender, text) {
   const messageDiv = document.createElement("div");
   messageDiv.classList.add("message", sender);
-
   const bubble = document.createElement("div");
   bubble.classList.add("bubble");
   bubble.textContent = text;
@@ -23,7 +21,6 @@ function appendMessage(sender, text) {
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// Backend ko message bhejna aur pura history (array ke roop me)
 async function sendMessage() {
   const text = userInput.value.trim();
   if (!text) return;
@@ -31,7 +28,6 @@ async function sendMessage() {
   appendMessage("user", text);
   userInput.value = "";
   userInput.style.height = "45px";
-
   chatHistory.push({ role: "user", content: text });
 
   try {
@@ -43,17 +39,13 @@ async function sendMessage() {
 
     const data = await response.json();
     appendMessage("bot", data.reply);
-
-    // Bot ka reply bhi context me rakhein
     chatHistory.push({ role: "assistant", content: data.reply });
-
     saveToHistory(text, data.reply);
   } catch (error) {
     appendMessage("bot", "⚠️ Error: Unable to connect to server.");
   }
 }
 
-// Chat history UI
 function saveToHistory(userMsg, botMsg) {
   const entry = { userMsg, botMsg, time: new Date().toLocaleTimeString() };
   history.unshift(entry);
@@ -77,7 +69,6 @@ function loadChat(index) {
   appendMessage("bot", chat.botMsg);
 }
 
-// Enter ya button se message send
 userInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
