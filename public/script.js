@@ -9,40 +9,29 @@ const sendBtn = document.getElementById("send-btn");
 const historyList = document.getElementById("history");
 
 let history = [];
-let chatHistory = []; // This holds the full chat for backend context
+let chatHistory = []; // Yeh pura conversation context backend ko jane ke liye
 
-// Add message to chat
 function appendMessage(sender, text) {
   const messageDiv = document.createElement("div");
   messageDiv.classList.add("message", sender);
 
   const bubble = document.createElement("div");
   bubble.classList.add("bubble");
-
-  // Markdown-style formatting (basic)
-  let html = text
-    .replace(/``````/g, "<pre><code>$1</code></pre>")
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.*?)\*/g, "<em>$1</em>")
-    .replace(/`(.*?)`/g, "<code>$1</code>")
-    .replace(/\n/g, "<br>");
-
-  bubble.innerHTML = html;
+  bubble.textContent = text;
   messageDiv.appendChild(bubble);
   chatBox.appendChild(messageDiv);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// Send message to backend (corrected for messages array)
+// Backend ko message bhejna aur pura history (array ke roop me)
 async function sendMessage() {
   const text = userInput.value.trim();
   if (!text) return;
 
   appendMessage("user", text);
   userInput.value = "";
-  userInput.style.height = "45px"; // reset height
+  userInput.style.height = "45px";
 
-  // Maintain entire chat history for context
   chatHistory.push({ role: "user", content: text });
 
   try {
@@ -55,7 +44,7 @@ async function sendMessage() {
     const data = await response.json();
     appendMessage("bot", data.reply);
 
-    // Add bot reply to chatHistory for continuity
+    // Bot ka reply bhi context me rakhein
     chatHistory.push({ role: "assistant", content: data.reply });
 
     saveToHistory(text, data.reply);
@@ -64,7 +53,7 @@ async function sendMessage() {
   }
 }
 
-// Save chat history
+// Chat history UI
 function saveToHistory(userMsg, botMsg) {
   const entry = { userMsg, botMsg, time: new Date().toLocaleTimeString() };
   history.unshift(entry);
@@ -88,7 +77,7 @@ function loadChat(index) {
   appendMessage("bot", chat.botMsg);
 }
 
-// Handle Enter/Shift+Enter
+// Enter ya button se message send
 userInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
@@ -96,7 +85,6 @@ userInput.addEventListener("keydown", (e) => {
   }
 });
 
-// Auto expand textarea
 userInput.addEventListener("input", () => {
   userInput.style.height = "auto";
   userInput.style.height = userInput.scrollHeight + "px";
