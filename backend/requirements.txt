@@ -4,4 +4,4 @@ pydantic
 python-dotenv
 google-generativeai
 feedparser
-
+requests
