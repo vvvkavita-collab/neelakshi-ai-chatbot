@@ -8,14 +8,14 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 import google.generativeai as genai
 
-# Load environment variables
+# Load env
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
 GOOGLE_SEARCH_ENGINE_ID = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
 
 if not GEMINI_API_KEY:
-    raise Exception("❌ GEMINI_API_KEY missing in environment variables.")
+    raise Exception("❌ GEMINI_API_KEY missing!")
 
 genai.configure(api_key=GEMINI_API_KEY)
 
@@ -32,6 +32,7 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     message: str
 
+# ---------------------- Helper Functions ----------------------
 def google_news_hindi_top5():
     try:
         feed = feedparser.parse("https://news.google.com/rss?hl=hi&gl=IN&ceid=IN:hi")
@@ -48,12 +49,9 @@ def google_search_snippets(query, max_results=3):
             "q": query,
             "num": max_results,
         }
-        resp = requests.get(url, params=params, timeout=8)
-        data = resp.json()
-        if "items" in data:
-            return " ".join(
-                [f"{item['title']}: {item['snippet']}" for item in data["items"][:max_results]]
-            )
+        r = requests.get(url, params=params, timeout=8).json()
+        if "items" in r:
+            return " ".join([f"{i['title']}: {i['snippet']}" for i in r["items"][:max_results]])
         return None
     except Exception:
         return None
@@ -65,9 +63,7 @@ def get_weather(location):
             return None
         lat = geo["results"][0]["latitude"]
         lon = geo["results"][0]["longitude"]
-        w = requests.get(
-            f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
-        ).json()
+        w = requests.get(f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true").json()
         temp = w["current_weather"]["temperature"]
         wind = w["current_weather"]["windspeed"]
         return f"🌤️ {location} का वर्तमान तापमान {temp}°C है और हवा की गति {wind} km/h है।"
@@ -93,19 +89,18 @@ def get_live_cricket():
             "X-RapidAPI-Key": os.getenv("RAPIDAPI_KEY", ""),
             "X-RapidAPI-Host": "cricbuzz-cricket.p.rapidapi.com",
         }
-        res = requests.get(url, headers=headers, timeout=10)
-        data = res.json()
+        res = requests.get(url, headers=headers, timeout=10).json()
         matches = []
-
-        for series in data.get("typeMatches", []):
+        for series in res.get("typeMatches", []):
             for match in series.get("seriesMatches", []):
                 if "seriesAdWrapper" in match:
-                    for game in match["seriesAdWrapper"].get("matches", []):
-                        info = game.get("matchInfo", {})
-                        teams = info.get("team1", {}).get("teamSName", "") + " vs " + info.get("team2", {}).get("teamSName", "")
-                        if info.get("matchDesc"):
+                    for m in match["seriesAdWrapper"].get("matches", []):
+                        info = m.get("matchInfo", {})
+                        team1 = info.get("team1", {}).get("teamSName", "")
+                        team2 = info.get("team2", {}).get("teamSName", "")
+                        if "India" in team1 or "India" in team2:
                             matches.append({
-                                "teams": teams,
+                                "teams": f"{team1} vs {team2}",
                                 "venue": info.get("venueInfo", {}).get("ground", "Unknown"),
                                 "status": info.get("status", "No status available"),
                             })
@@ -113,82 +108,63 @@ def get_live_cricket():
     except Exception:
         return None
 
+# ---------------------- Main Route ----------------------
 @app.get("/")
 async def root():
-    return {"message": "✅ Neelakshi AI Chatbot backend is active & real-time enabled!"}
+    return {"message": "✅ Neelakshi AI Chatbot backend is running fine!"}
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
     user_text = (req.message or "").strip()
     if not user_text:
         return {"reply": "कृपया कुछ लिखें।"}
-
     lower = user_text.lower()
 
-    # Hindi News
+    # 1️⃣ News
     if any(word in lower for word in ["news", "खबर", "headline", "समाचार", "आज की खबर"]):
         headlines = google_news_hindi_top5()
         if headlines:
             return {"reply": "🗞️ आज की टॉप 5 हिंदी खबरें:\n\n" + "\n".join([f"{i+1}. {h}" for i, h in enumerate(headlines)])}
-        return {"reply": "⚠️ फिलहाल खबरें लोड नहीं हो सकीं।"}
+        return {"reply": "⚠️ खबरें उपलब्ध नहीं हैं।"}
 
-    # Weather
+    # 2️⃣ Weather
     if "weather" in lower or "मौसम" in lower:
         city = lower.replace("weather", "").replace("मौसम", "").strip() or "Delhi"
-        weather_info = get_weather(city)
-        return {"reply": weather_info or "⚠️ मौसम की जानकारी नहीं मिल सकी।"}
+        weather = get_weather(city)
+        return {"reply": weather or "⚠️ मौसम की जानकारी नहीं मिल सकी।"}
 
-    # Cricket
-    if any(word in lower for word in ["cricket", "match", "t20", "odi", "ipl", "series", "score"]):
+    # 3️⃣ Cricket
+    if any(word in lower for word in ["cricket", "match", "t20", "odi", "ipl", "score", "series"]):
         matches = get_live_cricket()
         if matches:
-            formatted = "\n\n".join(
-                [f"🏏 {m['teams']}\n📍 मैदान: {m['venue']}\n📊 स्थिति: {m['status']}" for m in matches]
-            )
+            formatted = "\n\n".join([f"🏏 {m['teams']}\n📍 मैदान: {m['venue']}\n📊 स्थिति: {m['status']}" for m in matches])
             return {"reply": formatted}
-        else:
-            return {"reply": "⚠️ इस समय कोई लाइव क्रिकेट डेटा नहीं मिला।"}
+        return {"reply": "⚠️ इस समय कोई लाइव क्रिकेट डेटा उपलब्ध नहीं है।"}
 
-    # Location/Government queries
-    if any(word in lower for word in ["collector", "district", "state", "city", "राज्य", "जिला", "कलेक्टर", "शहर"]):
-        # Optional hardcoded override (only if confident)
-        if "जयपुर" in lower and "कलेक्टर" in lower:
-            return {"reply": "Hindi: जयपुर के कलेक्टर श्री राजन कुमार सिंह (IAS) हैं।\nEnglish: The Collector of Jaipur is Mr. Rajan Kumar Singh (IAS)."}
-
-        query = user_text + " site:rajasthan.gov.in OR site:wikipedia.org OR site:jaipur.nic.in OR site:timesofindia.indiatimes.com"
+    # 4️⃣ District Collector / Government info
+    if any(w in lower for w in ["collector", "district", "जिला", "कलेक्टर", "collector of", "district magistrate"]):
+        if "jaipur" in lower or "जयपुर" in lower:
+            return {"reply": "Hindi: जयपुर के जिला कलेक्टर श्री जितेन्द्र कुमार सोनी (IAS) हैं।\nEnglish: The District Collector of Jaipur is Mr. Jitendra Kumar Soni (IAS)."}
+        query = user_text + " site:rajasthan.gov.in OR site:wikipedia.org OR site:timesofindia.indiatimes.com"
         snippets = google_search_snippets(query)
         if snippets:
-            prompt = f"""
-User asked: {user_text}
+            prompt = f"""User query: {user_text}
 Date: {datetime.now().strftime('%d %B %Y')}
-
-Below is the latest online info:
-{snippets}
-
-You are a fact-based AI assistant.
-👉 If the data mentions a person’s name or post (like Collector, CM, etc.), give a **clear and confident** one-line answer.
-👉 If multiple sources exist, pick the **most recent & logical** one.
-👉 Output must be in this exact format:
-
-Hindi: <short Hindi answer>  
-English: <short English answer>
-"""
+Online info: {snippets}
+Please give a short, factual bilingual answer:
+Hindi: ...
+English: ..."""
             answer = ask_gemini(prompt)
             return {"reply": answer or f"⚠️ स्पष्ट उत्तर नहीं मिला।\n\n🔍 उपलब्ध जानकारी:\n{snippets}"}
-        else:
-            return {"reply": "⚠️ कोई जानकारी प्राप्त नहीं हुई।"}
+        return {"reply": "⚠️ कोई सरकारी जानकारी नहीं मिली।"}
 
-    # General queries
+    # 5️⃣ General QnA
     snippets = google_search_snippets(user_text)
-    prompt = (
-        f"User question: {user_text}\n"
-        f"Today's date: {datetime.now().strftime('%d %B %Y')}\n"
-        f"Recent online info: {snippets}\n\n"
-        "Give an accurate, up-to-date answer. Use Hindi if question is Hindi."
-    )
-    answer = ask_gemini(prompt)
-    return {"reply": answer or f"⚠️ इस समय जानकारी उपलब्ध नहीं है।\n\n🔍 उपलब्ध जानकारी:\n{snippets}"}
+    prompt = f"User asked: {user_text}\nToday's date: {datetime.now().strftime('%d %B %Y')}\nRecent info: {snippets}\nGive clear short bilingual answer."
+    ans = ask_gemini(prompt)
+    return {"reply": ans or f"⚠️ इस समय सटीक जानकारी नहीं मिल सकी।\n\n🔍 उपलब्ध जानकारी:\n{snippets}"}
 
+# ---------------------- For Render ----------------------
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=10000)
