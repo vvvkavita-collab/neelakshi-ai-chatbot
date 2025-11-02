@@ -119,7 +119,13 @@ def get_live_cricket_rapidapi():
 def ask_gemini(messages):
     if not (HAS_GENAI and GEMINI_API_KEY):
         return None
-    chat_format = [{"role": m.role, "parts": [m.content]} for m in messages]
+    chat_format = []
+    for m in messages:
+        # Support both Pydantic obj and dict
+        if hasattr(m, "role") and hasattr(m, "content"):
+            chat_format.append({"role": m.role, "parts": [m.content]})
+        elif isinstance(m, dict) and "role" in m and "content" in m:
+            chat_format.append({"role": m["role"], "parts": [m["content"]]})
     try:
         model = genai.GenerativeModel("models/gemini-2.5-flash")
         response = model.generate_content(chat_format)
@@ -139,19 +145,18 @@ def chat(req: ChatRequest):
         loc = loc if loc else "Delhi"
         w = get_weather(loc)
         if w:
-            reply = w + "\n\n(Weather via Open-Meteo live)"
-            req.messages.append({"role": "model", "content": reply})
+            req.messages.append({"role": "model", "content": w})
             ans = ask_gemini(req.messages)
-            return {"reply": ans or reply}
+            return {"reply": ans or w}
 
     # Cricket
     if any(x in user_msg for x in ["cricket", "t20", "odi", "ipl", "match", "score"]):
         live = get_live_cricket_rapidapi()
         if live:
-            reply = "\n\n".join(live)
-            req.messages.append({"role": "model", "content": reply})
+            cricket_info = "\n\n".join(live)
+            req.messages.append({"role": "model", "content": cricket_info})
             ans = ask_gemini(req.messages)
-            return {"reply": ans or reply}
+            return {"reply": ans or cricket_info}
 
     # News
     if "news" in user_msg or "खबर" in user_msg or "समाचार" in user_msg:
