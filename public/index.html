@@ -1,56 +1,38 @@
-const chatBox = document.getElementById("chat-box");
-const userInput = document.getElementById("user-input");
-const sendBtn = document.getElementById("send-btn");
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neelakshi AI Chatbot</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <aside class="sidebar">
+        <h2>🗂️ Chat History</h2>
+        <ul id="history"></ul>
+      </aside>
 
-const backendURL = "https://neelakshi-ai-chatbot-api.onrender.com";
-// 👈 Replace this with your actual FastAPI backend URL from Render
+      <main class="chat-section">
+        <header class="chat-header">
+          <h1>🤖 Neelakshi AI Chatbot</h1>
+          <p>Ask anything. Learn everything.</p>
+        </header>
 
-async function sendMessage() {
-  const message = userInput.value.trim();
-  if (!message) return;
+        <div id="chat-box" class="chat-box"></div>
 
-  addMessage("user", message);
-  userInput.value = "";
+        <div class="input-area">
+          <textarea
+            id="user-input"
+            rows="1"
+            placeholder="Type your message..."
+          ></textarea>
+          <button id="send-btn">➤</button>
+        </div>
+      </main>
+    </div>
 
-  addMessage("bot", "⏳ Thinking...");
-
-  try {
-    const response = await fetch(`${backendURL}/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: [{ role: "user", content: message }],
-      }),
-    });
-
-    const data = await response.json();
-    updateLastBotMessage(data.reply || "⚠️ No reply received.");
-  } catch (error) {
-    updateLastBotMessage("❌ Error connecting to server.");
-    console.error(error);
-  }
-}
-
-function addMessage(role, text) {
-  const div = document.createElement("div");
-  div.classList.add("message", role);
-  div.textContent = text;
-  chatBox.appendChild(div);
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-function updateLastBotMessage(text) {
-  const botMessages = chatBox.getElementsByClassName("bot");
-  if (botMessages.length > 0) {
-    botMessages[botMessages.length - 1].textContent = text;
-  }
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-sendBtn.addEventListener("click", sendMessage);
-userInput.addEventListener("keypress", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
-});
+    <!-- 👇 Make sure this line is at the very end -->
+    <script src="script.js"></script>
+  </body>
+</html>
