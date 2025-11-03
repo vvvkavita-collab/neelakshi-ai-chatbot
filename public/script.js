@@ -2,8 +2,8 @@ const chatBox = document.getElementById("chat-box");
 const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 
-const backendURL = "https://neelakshi-ai-chatbot-api.onrender.com";
-// 👈 Replace this with your actual FastAPI backend URL from Render
+// ✅ Correct backend URL
+const backendURL = "https://neelakshi-ai-chatbot.onrender.com";
 
 async function sendMessage() {
   const message = userInput.value.trim();
@@ -15,7 +15,7 @@ async function sendMessage() {
   addMessage("bot", "⏳ Thinking...");
 
   try {
-    const response = await fetch(`${backendURL}/chat-stream`, {
+    const response = await fetch(`${backendURL}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -27,7 +27,7 @@ async function sendMessage() {
     updateLastBotMessage(data.reply || "⚠️ No reply received.");
   } catch (error) {
     updateLastBotMessage("❌ Error connecting to server.");
-    console.error(error);
+    console.error("Chat error:", error);
   }
 }
 
@@ -54,5 +54,3 @@ userInput.addEventListener("keypress", (e) => {
     sendMessage();
   }
 });
-
-
