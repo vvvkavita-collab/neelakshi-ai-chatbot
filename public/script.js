@@ -2,8 +2,9 @@ const chatBox = document.getElementById("chat-box");
 const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 
-// ✅ Correct backend URL
-const backendURL = "https://neelakshi-ai-chatbot.onrender.com";
+// ✅ Correct backend URL (update to your Render backend)
+const backendURL = "https://neelakshi-ai-chatbot-backend.onrender.com"; 
+// 👆 replace this with your actual backend Render URL if it's different
 
 async function sendMessage() {
   const message = userInput.value.trim();
@@ -15,13 +16,17 @@ async function sendMessage() {
   addMessage("bot", "⏳ Thinking...");
 
   try {
-    const response = await fetch(`${backendURL}/chat`, {
+    const response = await fetch(`${backendURL}/chat-stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         messages: [{ role: "user", content: message }],
       }),
     });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
 
     const data = await response.json();
     updateLastBotMessage(data.reply || "⚠️ No reply received.");
