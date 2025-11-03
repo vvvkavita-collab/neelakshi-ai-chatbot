@@ -3,7 +3,7 @@ const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 
 // ✅ Correct backend URL (update to your Render backend)
-const backendURL = "https://neelakshi-ai-chatbot-backend.onrender.com"; 
+const backendURL = "https://neelakshi-ai-chatbot-api.onrender.com";
 // 👆 replace this with your actual backend Render URL if it's different
 
 async function sendMessage() {
@@ -59,3 +59,4 @@ userInput.addEventListener("keypress", (e) => {
     sendMessage();
   }
 });
+
