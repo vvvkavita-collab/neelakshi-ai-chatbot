@@ -2,8 +2,7 @@ fastapi
 uvicorn
 pydantic
 python-dotenv
-google-generativeai
-feedparser
 requests
+feedparser
+google-generativeai
 beautifulsoup4
-
