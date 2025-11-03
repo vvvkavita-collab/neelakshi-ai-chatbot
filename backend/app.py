@@ -1,13 +1,11 @@
 import os
 import requests
 import feedparser
-from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-# Gemini (Google AI)
 try:
     import google.generativeai as genai
     HAS_GENAI = True
@@ -40,58 +38,40 @@ class Message(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[Message]
 
-def wikipedia_lookup(topic):
-    """Try to get current info from Wikipedia - best for collector/CM-like queries."""
+def get_current_collector(city):
+    # Try Wikipedia
     try:
-        title = (
-            topic.replace("who is", "")
-            .replace("name of", "")
-            .replace("current", "")
-            .replace("the", "")
-            .replace("?", "")
-            .strip()
-            .replace(" ", "_")
-        )
-        url = "https://en.wikipedia.org/api/rest_v1/page/summary/" + title
-        resp = requests.get(url, timeout=6)
-        data = resp.json()
-        if "extract" in data and data["extract"]:
-            return data["extract"]
+        url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{city}_district"
+        r = requests.get(url, timeout=8)
+        data = r.json()
+        for key in ["collector", "district magistrate", "district magistrate of " + city.lower()]:
+            if key in data.get("extract", "").lower():
+                return data.get("extract")
+    except Exception:
+        pass
+    # Try Rajasthan Govt official site (scraped)
+    try:
+        url = "https://jaipur.rajasthan.gov.in/content/raj/jaipur/en/about-jaipur/district-collector.html"
+        r = requests.get(url, timeout=8)
+        if "District Collector" in r.text:
+            start = r.text.find("District Collector")
+            snippet = r.text[start:start + 250]
+            return snippet.strip()
     except Exception:
         pass
     return None
 
-def google_news_top5():
+def get_cm(state):
+    # Wikipedia API for the state CM
     try:
-        feed = feedparser.parse("https://news.google.com/rss?hl=en-IN&gl=IN&ceid=IN:en")
-        return [entry.title for entry in feed.entries[:5]] if feed and feed.entries else None
+        url = f"https://en.wikipedia.org/api/rest_v1/page/summary/List_of_chief_ministers_of_{state.title()}_(_India_)"
+        r = requests.get(url, timeout=8)
+        data = r.json()
+        if data.get("extract"):
+            return data["extract"]
     except Exception:
-        return None
-
-def google_search_snippets(query: str, max_results: int = 3):
-    if not GOOGLE_SEARCH_API_KEY or not GOOGLE_SEARCH_ENGINE_ID:
-        return None
-    try:
-        url = "https://www.googleapis.com/customsearch/v1"
-        params = {
-            "key": GOOGLE_SEARCH_API_KEY,
-            "cx": GOOGLE_SEARCH_ENGINE_ID,
-            "q": query,
-            "num": max_results
-        }
-        resp = requests.get(url, params=params, timeout=8)
-        data = resp.json()
-        if "items" in data:
-            parts = []
-            for item in data["items"][:max_results]:
-                title = item.get("title", "")
-                snippet = item.get("snippet", "")
-                link = item.get("link", "")
-                parts.append(f"{title}. {snippet} (Source: {link})")
-            return "\n\n".join(parts)
-        return None
-    except Exception:
-        return None
+        pass
+    return None
 
 def get_weather(location: str):
     try:
@@ -106,43 +86,21 @@ def get_weather(location: str):
         cw = w.get("current_weather", {})
         temp = cw.get("temperature")
         wind = cw.get("windspeed")
-        return f"🌤️ {location.title()} ka aaj ka temperature: {temp}°C, wind: {wind} km/h."
+        return f"{location.title()} ka aaj ka temperature: {temp}°C, wind: {wind} km/h."
     except Exception:
         return None
 
-def get_live_cricket_rapidapi():
-    if not RAPIDAPI_KEY:
-        return None
+def google_news_top5():
     try:
-        url = "https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live"
-        headers = {
-            "X-RapidAPI-Key": RAPIDAPI_KEY,
-            "X-RapidAPI-Host": "cricbuzz-cricket.p.rapidapi.com",
-        }
-        r = requests.get(url, headers=headers, timeout=10)
-        data = r.json()
-        matches = []
-        for section in data.get("typeMatches", []):
-            for seriesBlock in section.get("seriesMatches", []):
-                if "seriesAdWrapper" in seriesBlock:
-                    for game in seriesBlock["seriesAdWrapper"].get("matches", []):
-                        info = game.get("matchInfo", {})
-                        team1 = info.get("team1", {}).get("teamSName", "")
-                        team2 = info.get("team2", {}).get("teamSName", "")
-                        venue = info.get("venueInfo", {}).get("ground", "Unknown")
-                        status = info.get("status", "Status not available")
-                        if team1 and team2:
-                            matches.append(f"{team1} vs {team2} at {venue}\nStatus: {status}")
-        return matches[:5] if matches else None
+        feed = feedparser.parse("https://news.google.com/rss?hl=en-IN&gl=IN&ceid=IN:en")
+        return [entry.title for entry in feed.entries[:5]] if feed and feed.entries else None
     except Exception:
         return None
 
 def ask_gemini(messages):
-    if not (HAS_GENAI and GEMINI_API_KEY):
-        return None
+    if not (HAS_GENAI and GEMINI_API_KEY): return None
     chat_format = []
     for m in messages:
-        # Support both Pydantic obj and dict
         if hasattr(m, "role") and hasattr(m, "content"):
             chat_format.append({"role": m.role, "parts": [m.content]})
         elif isinstance(m, dict) and "role" in m and "content" in m:
@@ -154,30 +112,43 @@ def ask_gemini(messages):
             return response.text.strip()
         return str(response)
     except Exception as e:
-        return f"❌ Gemini error: {e}"
+        return f"Gemini error: {e}"
 
 @app.post("/chat")
 def chat(req: ChatRequest):
-    user_msg = req.messages[-1].content.lower()
+    user_msg = req.messages[-1].content.lower().strip()
 
     # Weather
     if "weather" in user_msg or "मौसम" in user_msg:
         loc = user_msg.replace("weather", "").replace("मौसम", "").strip()
         loc = loc if loc else "Delhi"
-        w = get_weather(loc)
-        if w:
-            req.messages.append({"role": "model", "content": w})
+        data = get_weather(loc)
+        if data:
+            req.messages.append({"role": "model", "content": data})
             ans = ask_gemini(req.messages)
-            return {"reply": ans or w}
+            return {"reply": ans or data}
 
-    # Cricket
-    if any(x in user_msg for x in ["cricket", "t20", "odi", "ipl", "match", "score"]):
-        live = get_live_cricket_rapidapi()
-        if live:
-            cricket_info = "\n\n".join(live)
-            req.messages.append({"role": "model", "content": cricket_info})
+    # CM query
+    if "cm" in user_msg or "chief minister" in user_msg:
+        for state in ["rajasthan", "up", "uttar pradesh", "mp", "madhya pradesh", "maharashtra", "delhi", "haryana"]:
+            if state in user_msg:
+                info = get_cm(state)
+                if info:
+                    req.messages.append({"role": "model", "content": info})
+                    ans = ask_gemini(req.messages)
+                    return {"reply": ans or info}
+    # Collector query
+    if "collector" in user_msg or "जिला" in user_msg:
+        city = "jaipur"
+        for token in user_msg.split():
+            if token not in ["what", "who", "is", "the", "of", "collector"]:
+                city = token
+                break
+        info = get_current_collector(city.title())
+        if info:
+            req.messages.append({"role": "model", "content": info})
             ans = ask_gemini(req.messages)
-            return {"reply": ans or cricket_info}
+            return {"reply": ans or info}
 
     # News
     if "news" in user_msg or "खबर" in user_msg or "समाचार" in user_msg:
@@ -188,28 +159,6 @@ def chat(req: ChatRequest):
             ans = ask_gemini(req.messages)
             return {"reply": ans or news}
 
-    # Collector / CM / District / Authority queries -- Wikipedia First, fallback: Google CSE
-    if any(w in user_msg for w in ["collector", "जिला", "कलेक्टर", "district", "cm", "chief minister"]):
-        wiki = wikipedia_lookup(user_msg)
-        if wiki:
-            req.messages.append({"role": "model", "content": wiki})
-            ans = ask_gemini(req.messages)
-            return {"reply": ans or wiki}
-        # Else try CSE search
-        q = user_msg + " site:gov.in OR site:nic.in OR site:wikipedia.org"
-        snippets = google_search_snippets(q)
-        if snippets:
-            req.messages.append({"role": "model", "content": snippets})
-            ans = ask_gemini(req.messages)
-            return {"reply": ans or snippets}
-
     # General search
-    snippets = google_search_snippets(user_msg)
-    if snippets:
-        req.messages.append({"role": "model", "content": snippets})
-        ans = ask_gemini(req.messages)
-        return {"reply": ans or snippets}
-
-    # Last fallback: pure LLM answer (training data)
     ans = ask_gemini(req.messages)
-    return {"reply": ans or "⚠️ Sorry, abhi is prashn par sahi data nahi mila."}
+    return {"reply": ans or "Sorry, up-to-date data is not available for your question."}
