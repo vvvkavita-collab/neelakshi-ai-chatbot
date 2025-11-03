@@ -15,7 +15,7 @@ async function sendMessage() {
   addMessage("bot", "⏳ Thinking...");
 
   try {
-    const response = await fetch(`${backendURL}/chat`, {
+    const response = await fetch(`${backendURL}/chat-stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -54,4 +54,5 @@ userInput.addEventListener("keypress", (e) => {
     sendMessage();
   }
 });
+
 
