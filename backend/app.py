@@ -7,22 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-# Gemini LLM
+# Gemini (Google AI)
 try:
     import google.generativeai as genai
     HAS_GENAI = True
 except Exception:
     HAS_GENAI = False
-
-# Astrology package for predictions (pip install flatlib)
-try:
-    from flatlib.chart import Chart
-    from flatlib.datetime import Datetime
-    from flatlib.geopos import GeoPos
-    from flatlib.const import SIDEREAL
-    HAS_ASTRO = True
-except Exception:
-    HAS_ASTRO = False
 
 load_dotenv()
 
@@ -50,15 +40,26 @@ class Message(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[Message]
 
-def wikipedia_lookup(query):
+def wikipedia_lookup(topic):
+    """Try to get current info from Wikipedia - best for collector/CM-like queries."""
     try:
-        resp = requests.get("https://en.wikipedia.org/api/rest_v1/page/summary/" + query.replace(" ", "_"), timeout=5)
+        title = (
+            topic.replace("who is", "")
+            .replace("name of", "")
+            .replace("current", "")
+            .replace("the", "")
+            .replace("?", "")
+            .strip()
+            .replace(" ", "_")
+        )
+        url = "https://en.wikipedia.org/api/rest_v1/page/summary/" + title
+        resp = requests.get(url, timeout=6)
         data = resp.json()
-        if data.get("extract"):
+        if "extract" in data and data["extract"]:
             return data["extract"]
-        return None
     except Exception:
-        return None
+        pass
+    return None
 
 def google_news_top5():
     try:
@@ -136,22 +137,6 @@ def get_live_cricket_rapidapi():
     except Exception:
         return None
 
-def astro_prediction(name, dob, tob, pob):
-    """Example astrology function using flatlib (needs improvement for advanced astrology!)"""
-    try:
-        # dob (YYYY-MM-DD), tob (HH:MM), pob (city)
-        dt = Datetime(dob + ' ' + tob, 'UTC')
-        geo = requests.get(f"https://geocoding-api.open-meteo.com/v1/search?name={pob}&count=1").json()
-        if "results" in geo and geo["results"]:
-            city = geo["results"][0]
-            pos = GeoPos(city["latitude"], city["longitude"])
-            chart = Chart(dt, pos, hsys='P', IDs=SIDEREAL)
-            sunSign = chart.get("SUN").sign
-            return f"{name}, aapki janm rashi {sunSign} hai. (Detailed astrology needs more custom code.)"
-        return "Location not found for astrology."
-    except Exception as e:
-        return f"Astro error: {e}"
-
 def ask_gemini(messages):
     if not (HAS_GENAI and GEMINI_API_KEY):
         return None
@@ -203,29 +188,28 @@ def chat(req: ChatRequest):
             ans = ask_gemini(req.messages)
             return {"reply": ans or news}
 
-    # Astrology
-    if any(x in user_msg for x in ["kundli", "janam", "birth chart", "future", "astrology", "prediction", "rashi", "zodiac"]):
-        # Example: extract dob, tob, pob from history
-        dob, tob, pob, name = None, None, None, "User"
-        for m in req.messages:
-            text = m.content.lower()
-            if "dob" in text or "date" in text:
-                # Try to extract like "dob: 1990-01-01" (very basic)
-                for part in text.split():
-                    if part.count('-') == 2:
-                        dob = part
-            if "time" in text or "tob" in text:
-                # Look for "time: 09:00"
-                for part in text.split():
-                    if ':' in part:
-                        tob = part
-            if "jaipur" in text or "delhi" in text or "pob" in text:
-                pob = "jaipur" if "jaipur" in text else "delhi"
-        if ALL_VARS := (dob and tob and pob):
-            astro = astro_prediction(name, dob, tob, pob)
-            req.messages.append({"role": "model", "content": astro})
+    # Collector / CM / District / Authority queries -- Wikipedia First, fallback: Google CSE
+    if any(w in user_msg for w in ["collector", "जिला", "कलेक्टर", "district", "cm", "chief minister"]):
+        wiki = wikipedia_lookup(user_msg)
+        if wiki:
+            req.messages.append({"role": "model", "content": wiki})
             ans = ask_gemini(req.messages)
-            return {"reply": ans or astro}
-        # Else, answer by Gemini intelligence only ("past, present, future")
+            return {"reply": ans or wiki}
+        # Else try CSE search
+        q = user_msg + " site:gov.in OR site:nic.in OR site:wikipedia.org"
+        snippets = google_search_snippets(q)
+        if snippets:
+            req.messages.append({"role": "model", "content": snippets})
+            ans = ask_gemini(req.messages)
+            return {"reply": ans or snippets}
+
+    # General search
+    snippets = google_search_snippets(user_msg)
+    if snippets:
+        req.messages.append({"role": "model", "content": snippets})
         ans = ask_gemini(req.messages)
-        return {"reply": ans or "Please provide DOB, time, and place for detailed
+        return {"reply": ans or snippets}
+
+    # Last fallback: pure LLM answer (training data)
+    ans = ask_gemini(req.messages)
+    return {"reply": ans or "⚠️ Sorry, abhi is prashn par sahi data nahi mila."}
