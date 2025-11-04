@@ -2,7 +2,7 @@ const chatBox = document.getElementById("chat-box");
 const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 
-// Backend API URL (your deployed backend)
+// 🔗 Replace with your backend URL from Render
 const API_URL = "https://neelakshi-ai-chatbot-api.onrender.com/chat";
 
 function appendMessage(sender, text, className) {
@@ -34,10 +34,7 @@ async function sendMessage() {
   }
 }
 
-// Send button click
 sendBtn.addEventListener("click", sendMessage);
-
-// Press Enter key to send
 userInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") sendMessage();
 });
