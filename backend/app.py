@@ -6,8 +6,8 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# ✅ Configure Gemini
 api_key = os.getenv("GEMINI_API_KEY")
+
 if not api_key:
     print("❌ ERROR: GEMINI_API_KEY not found in environment!")
 else:
@@ -27,14 +27,18 @@ def chat():
         if not user_message:
             return jsonify({"reply": "Please type something!"})
 
-        # ✅ Use latest Gemini 1.5 model
-        model = genai.GenerativeModel("models/gemini-1.5-flash")
+        if not api_key:
+            return jsonify({"reply": "⚠️ Gemini API key missing on server!"})
+
+        # ✅ Use correct new model format (v1)
+        model = genai.GenerativeModel("gemini-1.5-flash")  # <- No "models/" prefix
         response = model.generate_content(user_message)
 
         return jsonify({"reply": response.text})
+
     except Exception as e:
         print("⚠️ Error in /chat:", e)
-        return jsonify({"reply": f"⚠️ Error: {e}"})
+        return jsonify({"reply": f"⚠️ Error: {str(e)}"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
