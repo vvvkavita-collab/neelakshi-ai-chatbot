@@ -1,93 +1,105 @@
-# app.py
+# ==============================
+#  Neelakshi AI Chatbot Backend (Gemini)
+# ==============================
+
 import os
-import openai
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from dotenv import load_dotenv
+import google.generativeai as genai
 
-load_dotenv()
-
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    print("Warning: OPENAI_API_KEY not set. Set it in .env or environment.")
+# ------------------------------
+# 1️⃣ Setup Gemini API Key
+# ------------------------------
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    print("⚠️ Warning: GEMINI_API_KEY not set in environment variables.")
 else:
-    openai.api_key = OPENAI_API_KEY
+    genai.configure(api_key=GEMINI_API_KEY)
 
+# ------------------------------
+# 2️⃣ Create FastAPI app
+# ------------------------------
 app = FastAPI()
 
-# Allow frontend requests (for dev you can allow all)
+# Enable CORS so your frontend can talk to backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # change to explicit origin(s) in production
+    allow_origins=["*"],  # you can replace * with your site link later
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Serve static frontend from ./public
+# ------------------------------
+# 3️⃣ Serve frontend (optional)
+# ------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.join(BASE_DIR, "public")
-if not os.path.exists(FRONTEND_DIR):
-    print("Warning: public folder not found at", FRONTEND_DIR)
+if os.path.exists(FRONTEND_DIR):
+    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
-app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
-
-# respond to HEAD (some hosts probe with HEAD)
-@app.head("/")
-async def head_root():
-    return JSONResponse({"status": "ok"})
 
 @app.get("/")
-async def read_index():
+async def home():
     index_path = os.path.join(FRONTEND_DIR, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    return JSONResponse({"error": "index.html not found", "path_checked": index_path}, status_code=404)
+    return {"message": "🤖 Neelakshi AI Chatbot API is running!"}
+
 
 @app.get("/status")
 async def status():
-    return {"status": "✅ Backend is running"}
+    return {"status": "✅ Backend (Gemini) is running properly"}
 
-# Chat endpoint: expects JSON { "messages": [{ "role": "user", "content": "..."}, ...] }
+
+# ------------------------------
+# 4️⃣ Chat endpoint
+# ------------------------------
 @app.post("/chat")
 async def chat(req: Request):
-    payload = await req.json()
-    messages = payload.get("messages")
-    # If frontend sends { message: "text" } support that too:
-    if messages is None:
-        text = payload.get("message") or payload.get("content") or ""
+    """
+    Receives { "messages": [{ "role": "user", "content": "..."}, ...] }
+    Returns { "reply": "..." }
+    """
+    data = await req.json()
+    messages = data.get("messages")
+
+    if not messages:
+        text = data.get("message") or data.get("content") or ""
         messages = [{"role": "user", "content": text}]
 
-    # Build chat history for OpenAI
-    openai_messages = []
-    for m in messages:
-        role = m.get("role", "user")
-        content = m.get("content", "")
-        openai_messages.append({"role": role, "content": content})
+    # Extract the user’s latest message
+    user_input = ""
+    for msg in messages:
+        if msg.get("role") == "user":
+            user_input = msg.get("content", "")
 
-    # Basic safety: if no API key, return canned reply
-    if not OPENAI_API_KEY:
-        return {"reply": "OpenAI API key not configured on the server. Set OPENAI_API_KEY."}
+    if not user_input:
+        return {"reply": "Please say something 😊"}
+
+    # ------------------------------
+    # 5️⃣ Generate reply using Gemini
+    # ------------------------------
+    if not GEMINI_API_KEY:
+        return {"reply": "Gemini API key not configured on server 🛑"}
 
     try:
-        # Use gpt-3.5-turbo for example (change model as desired)
-        resp = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=openai_messages,
-            max_tokens=512,
-            temperature=0.7,
-        )
-        # Extract assistant text (concatenate choices if needed)
-        assistant_text = ""
-        if resp and "choices" in resp and len(resp["choices"]) > 0:
-            assistant_text = resp["choices"][0]["message"]["content"].strip()
-        else:
-            assistant_text = "Sorry, I couldn't generate a reply."
-
-        return {"reply": assistant_text}
-    except openai.error.OpenAIError as e:
-        return JSONResponse({"reply": f"[OpenAI error] {str(e)}"}, status_code=500)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(user_input)
+        return {"reply": response.text.strip()}
     except Exception as e:
-        return JSONResponse({"reply": f"[Server error] {str(e)}"}, status_code=500)
+        print("Error:", e)
+        return JSONResponse(
+            {"reply": f"⚠️ Error while generating response: {str(e)}"},
+            status_code=500,
+        )
+
+
+# ------------------------------
+# 6️⃣ Run for local testing
+# ------------------------------
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=10000)
