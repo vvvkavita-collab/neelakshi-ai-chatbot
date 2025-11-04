@@ -6,7 +6,7 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# Gemini API Key
+# Load API key
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
@@ -15,11 +15,9 @@ else:
     print("✅ GEMINI_API_KEY loaded successfully.")
     genai.configure(api_key=api_key)
 
-
 @app.route("/")
 def home():
     return jsonify({"message": "✅ Neelakshi AI Chatbot Backend is Running!"})
-
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -33,16 +31,15 @@ def chat():
         if not api_key:
             return jsonify({"reply": "⚠️ Gemini API key missing on server!"})
 
-        # ✅ Use older but stable model
-        model = genai.GenerativeModel(model_name="gemini-pro")
-        response = model.generate_content([user_message])
+        # Use stable model
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(user_message)
 
         return jsonify({"reply": response.text})
 
     except Exception as e:
         print("⚠️ Error in /chat:", e)
         return jsonify({"reply": "⚠️ Error connecting to Gemini server!"})
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
