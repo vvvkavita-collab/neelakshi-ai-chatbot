@@ -1,41 +1,47 @@
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
+from fastapi.staticfiles import StaticFiles
+import os
 
-# Create the FastAPI app
 app = FastAPI()
 
-# Allow your frontend (e.g., your chatbot UI) to connect
+# ✅ Allow frontend to talk to backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # you can later replace "*" with your frontend URL for safety
+    allow_origins=["*"],  # you can restrict to your frontend domain if needed
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Root route (for testing if backend is live)
+# ✅ Serve static frontend files
+frontend_dir = os.path.join(os.path.dirname(__file__), "../public")
+app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
+
 @app.get("/")
-def root():
+def serve_index():
+    index_path = os.path.join(frontend_dir, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return JSONResponse({"error": "index.html not found"}, status_code=404)
+
+# ✅ Simple backend check
+@app.get("/status")
+def status():
     return {"status": "Backend is running fine ✅"}
 
-# Example chatbot endpoint (you can modify this as you like)
+# ✅ Chat endpoint
 @app.post("/chat")
 async def chat(request: Request):
     data = await request.json()
-    user_message = data.get("message", "")
+    user_message = data.get("messages", [{}])[0].get("content", "").lower()
 
-    # Simple example logic — you can replace this with your chatbot code
-    if "hello" in user_message.lower():
-        reply = "Hi there 👋! How can I help you today?"
-    elif "how are you" in user_message.lower():
-        reply = "I'm just a bot, but I’m doing great! 😄"
+    if "hello" in user_message:
+        reply = "Hi there 👋! How can I help you?"
+    elif "bye" in user_message:
+        reply = "Goodbye! 👋"
     else:
         reply = f"You said: {user_message}"
 
     return {"reply": reply}
-
-
-# Run locally (Render will ignore this since it uses the Start Command)
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=10000)
