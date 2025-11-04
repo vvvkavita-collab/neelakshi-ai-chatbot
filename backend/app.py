@@ -27,7 +27,8 @@ def chat():
         if not user_message:
             return jsonify({"reply": "Please type something!"})
 
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        # ✅ Use latest Gemini 1.5 model
+        model = genai.GenerativeModel("models/gemini-1.5-flash")
         response = model.generate_content(user_message)
 
         return jsonify({"reply": response.text})
