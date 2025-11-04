@@ -1,65 +1,74 @@
-// ==============================
-// Neelakshi AI Chatbot - Frontend Script
-// ==============================
-
-// ✅ Change this link to your Render backend link:
-const backendURL = "https://neelakshi-ai-chatbot-api.onrender.com";
-
-// Select HTML elements
-const chatBox = document.getElementById("chat-box");
-const userInput = document.getElementById("user-input");
-const sendBtn = document.getElementById("send-btn");
-
-// Function to show messages in the chat
-function addMessage(sender, text) {
-  const messageDiv = document.createElement("div");
-  messageDiv.classList.add("message", sender);
-  messageDiv.innerHTML = `<strong>${sender}:</strong> ${text}`;
-  chatBox.appendChild(messageDiv);
-  chatBox.scrollTop = chatBox.scrollHeight; // scroll to bottom
+body {
+  font-family: "Segoe UI", sans-serif;
+  background: linear-gradient(to right, #ffdde1, #ee9ca7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  margin: 0;
 }
 
-// Function to send user message to backend
-async function sendMessage() {
-  const input = userInput.value.trim();
-  if (!input) return; // if empty input, do nothing
-
-  addMessage("You", input);
-  userInput.value = "";
-
-  // Show typing message
-  const loadingMessage = document.createElement("div");
-  loadingMessage.classList.add("message", "bot");
-  loadingMessage.innerHTML = "<em>Thinking...</em>";
-  chatBox.appendChild(loadingMessage);
-  chatBox.scrollTop = chatBox.scrollHeight;
-
-  try {
-    // Send message to backend API
-    const res = await fetch(`${backendURL}/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: input }),
-    });
-
-    const data = await res.json();
-
-    // Remove loading message
-    loadingMessage.remove();
-
-    // Show bot reply
-    addMessage("Bot", data.reply || "Sorry, no reply received.");
-  } catch (error) {
-    loadingMessage.remove();
-    addMessage("Bot", "⚠️ Error connecting to server!");
-    console.error("Chat error:", error);
-  }
+.chat-container {
+  background: white;
+  border-radius: 15px;
+  width: 400px;
+  padding: 20px;
+  box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.2);
 }
 
-// Event listeners
-sendBtn.addEventListener("click", sendMessage);
-userInput.addEventListener("keypress", function (e) {
-  if (e.key === "Enter") {
-    sendMessage();
-  }
-});
+h1 {
+  text-align: center;
+  color: #ff4081;
+}
+
+.chat-box {
+  height: 400px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.message {
+  margin: 5px 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  line-height: 1.4;
+}
+
+.message.You {
+  background-color: #d1ecf1;
+  text-align: right;
+}
+
+.message.bot {
+  background-color: #f8d7da;
+  text-align: left;
+}
+
+.input-area {
+  display: flex;
+  gap: 10px;
+}
+
+#user-input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+#send-btn {
+  background: #ff4081;
+  border: none;
+  color: white;
+  padding: 10px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+#send-btn:hover {
+  background: #e73370;
+}
