@@ -2,8 +2,7 @@ const chatBox = document.getElementById("chat-box");
 const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 
-// ✅ Backend URL
-const backendURL = "https://neelakshi-ai-chatbot-api.onrender.com"; // change if needed
+const backendURL = "https://neelakshi-ai-chatbot-api.onrender.com"; // backend API URL
 
 async function sendMessage() {
   const message = userInput.value.trim();
@@ -14,7 +13,6 @@ async function sendMessage() {
   addMessage("bot", "⏳ Thinking...");
 
   try {
-    // ✅ Non-stream mode (simpler, more reliable)
     const response = await fetch(`${backendURL}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
