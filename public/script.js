@@ -1,74 +1,48 @@
-body {
-  font-family: "Segoe UI", sans-serif;
-  background: linear-gradient(to right, #ffdde1, #ee9ca7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-  margin: 0;
+const backendURL = "https://neelakshi-ai-chatbot-api.onrender.com";
+
+const chatBox = document.getElementById("chat-box");
+const userInput = document.getElementById("user-input");
+const sendBtn = document.getElementById("send-btn");
+
+function addMessage(sender, text) {
+  const messageDiv = document.createElement("div");
+  messageDiv.classList.add("message", sender);
+  messageDiv.innerHTML = `<strong>${sender}:</strong> ${text}`;
+  chatBox.appendChild(messageDiv);
+  chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-.chat-container {
-  background: white;
-  border-radius: 15px;
-  width: 400px;
-  padding: 20px;
-  box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.2);
+async function sendMessage() {
+  const input = userInput.value.trim();
+  if (!input) return;
+
+  addMessage("You", input);
+  userInput.value = "";
+
+  const loading = document.createElement("div");
+  loading.classList.add("message", "bot");
+  loading.innerHTML = "<em>Thinking...</em>";
+  chatBox.appendChild(loading);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  try {
+    const res = await fetch(`${backendURL}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: input }),
+    });
+
+    const data = await res.json();
+    loading.remove();
+
+    addMessage("Bot", data.reply || "Sorry, I didn’t get that 😅");
+  } catch (error) {
+    loading.remove();
+    addMessage("Bot", "⚠️ Error connecting to server!");
+  }
 }
 
-h1 {
-  text-align: center;
-  color: #ff4081;
-}
-
-.chat-box {
-  height: 400px;
-  overflow-y: auto;
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  padding: 10px;
-  margin-bottom: 10px;
-}
-
-.message {
-  margin: 5px 0;
-  padding: 8px 10px;
-  border-radius: 10px;
-  line-height: 1.4;
-}
-
-.message.You {
-  background-color: #d1ecf1;
-  text-align: right;
-}
-
-.message.bot {
-  background-color: #f8d7da;
-  text-align: left;
-}
-
-.input-area {
-  display: flex;
-  gap: 10px;
-}
-
-#user-input {
-  flex: 1;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-}
-
-#send-btn {
-  background: #ff4081;
-  border: none;
-  color: white;
-  padding: 10px 15px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-#send-btn:hover {
-  background: #e73370;
-}
+sendBtn.addEventListener("click", sendMessage);
+userInput.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") sendMessage();
+});
