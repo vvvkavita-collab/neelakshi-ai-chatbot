@@ -6,11 +6,11 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# --- Gemini API Key Setup ---
+# Gemini API Key
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
-    print("❌ ERROR: GEMINI_API_KEY not found in Render environment variables!")
+    print("❌ ERROR: GEMINI_API_KEY not found in environment!")
 else:
     print("✅ GEMINI_API_KEY loaded successfully.")
     genai.configure(api_key=api_key)
@@ -33,8 +33,8 @@ def chat():
         if not api_key:
             return jsonify({"reply": "⚠️ Gemini API key missing on server!"})
 
-        # --- Use correct Gemini model name ---
-        model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest")
+        # ✅ Use older but stable model
+        model = genai.GenerativeModel(model_name="gemini-pro")
         response = model.generate_content([user_message])
 
         return jsonify({"reply": response.text})
