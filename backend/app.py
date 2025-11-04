@@ -1,13 +1,17 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import google.generativeai as genai
+import os
 
-# Initialize Flask app
+# Gemini API key (add in Render Environment tab)
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+
 app = Flask(__name__)
-CORS(app)  # allow frontend access
+CORS(app)
 
-@app.route("/", methods=["GET"])
+@app.route("/")
 def home():
-    return jsonify({"message": "Neelakshi AI Chatbot Backend is running!"})
+    return jsonify({"message": "✅ Neelakshi AI Chatbot Backend is Running!"})
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -15,21 +19,18 @@ def chat():
         data = request.get_json()
         user_message = data.get("message", "")
 
-        # Simple AI logic (you can replace this with real AI or OpenAI API)
-        if "hello" in user_message.lower():
-            reply = "Hi Neelakshi! 👋 How are you today?"
-        elif "jaipur collector" in user_message.lower():
-            reply = "The current Jaipur Collector is Dr. Prakash Rajpurohit (IAS)."
-        elif "your name" in user_message.lower():
-            reply = "I'm Neelakshi AI, your smart chatbot assistant 🤖!"
-        else:
-            reply = "I'm not sure about that, but I’ll try to learn soon!"
+        if not user_message:
+            return jsonify({"reply": "Please type something!"})
 
-        return jsonify({"reply": reply})
+        # Use Gemini API
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(user_message)
 
+        return jsonify({"reply": response.text})
+    
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+        print("Error:", e)
+        return jsonify({"reply": "⚠️ Error connecting to Gemini server!"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
