@@ -30,15 +30,12 @@ def chat():
         if not user_message:
             return jsonify({"reply": "Please type something!"})
 
-        # Check if API key is configured before calling Gemini
         if not api_key:
             return jsonify({"reply": "⚠️ Gemini API key missing on server!"})
 
-        # Initialize Gemini model
-        model = genai.GenerativeModel("gemini-1.5-flash")
-
-        # Generate response
-        response = model.generate_content(user_message)
+        # --- Use correct Gemini model name ---
+        model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest")
+        response = model.generate_content([user_message])
 
         return jsonify({"reply": response.text})
 
