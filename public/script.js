@@ -1,43 +1,38 @@
-const API_URL = "https://neelakshi-ai-chatbot-api.onrender.com/chat"; // your backend URL
+const API_URL = "https://neelakshi-ai-chatbot-api.onrender.com/chat";
 
-const chatBox = document.getElementById("chat-box");
-const userInput = document.getElementById("user-input");
-const sendBtn = document.getElementById("send-btn");
+const chatBox = document.querySelector("#chat-box");
+const userInput = document.querySelector("#user-input");
+const sendBtn = document.querySelector("#send-btn");
 
 function addMessage(sender, message) {
-  const messageDiv = document.createElement("div");
-  messageDiv.classList.add("message", sender);
-  messageDiv.innerHTML = `<strong>${sender === "bot" ? "Bot" : "You"}:</strong> ${message}`;
-  chatBox.appendChild(messageDiv);
+  const div = document.createElement("div");
+  div.classList.add(sender);
+  div.innerHTML = `<b>${sender === "bot" ? "Bot" : "You"}:</b> ${message}`;
+  chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+async function sendMessage() {
+  const msg = userInput.value.trim();
+  if (!msg) return;
+  addMessage("user", msg);
+  userInput.value = "";
+
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: msg }),
+    });
+
+    const data = await res.json();
+    addMessage("bot", data.reply || "⚠️ No response!");
+  } catch (err) {
+    addMessage("bot", "⚠️ Error connecting to server!");
+  }
 }
 
 sendBtn.addEventListener("click", sendMessage);
 userInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") sendMessage();
 });
-
-async function sendMessage() {
-  const userMessage = userInput.value.trim();
-  if (!userMessage) return;
-
-  addMessage("user", userMessage);
-  userInput.value = "";
-
-  try {
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: userMessage }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Server error");
-    }
-
-    const data = await response.json();
-    addMessage("bot", data.reply || "⚠️ No response from bot.");
-  } catch (error) {
-    addMessage("bot", "⚠️ Error connecting to server!");
-  }
-}
