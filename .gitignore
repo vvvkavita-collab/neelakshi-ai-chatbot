@@ -1,16 +1,4 @@
-# Node.js
-node_modules/
-npm-debug.log*
-.env
-
-# Python
 __pycache__/
+.env
 *.pyc
-*.pyo
-venv/
-env/
-
-# System
-.DS_Store
-.vscode/
-.idea/
+node_modules/
