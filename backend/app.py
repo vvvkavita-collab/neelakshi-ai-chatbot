@@ -6,7 +6,7 @@ import os
 
 app = FastAPI()
 
-# Allow all frontend origins for now
+# Allow CORS for frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -15,34 +15,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🟢 Absolute path to frontend directory
+# Serve static frontend
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "public"))
-
-# Debug print
-print("Frontend path:", FRONTEND_DIR)
-
-# 🟢 Mount static folder (CSS, JS)
+FRONTEND_DIR = os.path.join(BASE_DIR, "..", "public")  # keep frontend outside backend
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
-# 🟢 Serve index.html for root route
+# Serve main index.html
 @app.get("/")
 async def serve_index():
-    index_file = os.path.join(FRONTEND_DIR, "index.html")
-    if os.path.exists(index_file):
-        return FileResponse(index_file)
-    else:
-        return JSONResponse(
-            {"error": "index.html not found", "checked_path": index_file},
-            status_code=404,
-        )
+    index_path = os.path.join(FRONTEND_DIR, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return JSONResponse(
+        {"error": "index.html not found", "path_checked": index_path},
+        status_code=404
+    )
 
-# 🟢 Health check route
+# Health check
 @app.get("/status")
 async def status():
-    return {"status": "Backend is running fine ✅"}
+    return {"status": "Backend running fine ✅"}
 
-# 🟢 Chat route
+# Chat endpoint
 @app.post("/chat")
 async def chat(request: Request):
     data = await request.json()
