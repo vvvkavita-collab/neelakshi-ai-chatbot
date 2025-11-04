@@ -1,33 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Neelakshi AI Chatbot</title>
-  <link rel="stylesheet" href="/static/style.css" />
-</head>
-<body>
-  <div class="container">
-    <aside class="sidebar">
-      <h2>🗂️ Chat History</h2>
-      <ul id="history"></ul>
-    </aside>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neelakshi AI Chatbot</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
 
-    <main class="chat-section">
-      <header class="chat-header">
-        <h1>🤖 Neelakshi AI Chatbot</h1>
-        <p>Ask anything. Learn everything.</p>
-      </header>
+  <body>
+    <div class="chat-container">
+      <h1>💬 Neelakshi AI Chatbot</h1>
 
-      <div id="chat-box" class="chat-box"></div>
+      <div id="chat-box" class="chat-box">
+        <div class="message bot"><strong>Bot:</strong> Hello Neelakshi 👋! How can I help you today?</div>
+      </div>
 
       <div class="input-area">
-        <textarea id="user-input" rows="1" placeholder="Type your message..."></textarea>
-        <button id="send-btn">➤</button>
+        <input type="text" id="user-input" placeholder="Type your message..." />
+        <button id="send-btn">Send</button>
       </div>
-    </main>
-  </div>
+    </div>
 
-  <script src="/static/script.js" defer></script>
-</body>
+    <script src="script.js"></script>
+  </body>
 </html>
