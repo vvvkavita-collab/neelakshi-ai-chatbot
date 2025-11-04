@@ -1,4 +1,4 @@
-const API_URL = "https://neelakshi-ai-chatbot-api.onrender.com/chat";
+const API_URL = "https://neelakshi-ai-chatbot.onrender.com/chat";
 
 const chatBox = document.querySelector("#chat-box");
 const userInput = document.querySelector("#user-input");
@@ -36,3 +36,4 @@ sendBtn.addEventListener("click", sendMessage);
 userInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") sendMessage();
 });
+
