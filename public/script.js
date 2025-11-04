@@ -1,6 +1,7 @@
 // script.js
 
-const API_BASE_URL = "https://neelakshi-ai-chatbot.onrender.com"; // ✅ Correct backend URL
+// ✅ Use your actual backend URL
+const API_BASE_URL = "https://neelakshi-ai-chatbot.onrender.com";
 
 const chatContainer = document.getElementById("chat-container");
 const inputField = document.getElementById("user-input");
@@ -16,7 +17,7 @@ function addMessage(sender, text, isBot = false) {
   chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
-// Send user message
+// Send message to API
 async function sendMessage() {
   const text = inputField.value.trim();
   if (!text) return;
@@ -40,11 +41,11 @@ async function sendMessage() {
   }
 }
 
-// Send message on click or Enter
+// Send message when clicking or pressing Enter
 sendBtn.addEventListener("click", sendMessage);
 inputField.addEventListener("keypress", (e) => {
   if (e.key === "Enter") sendMessage();
 });
 
-// Initial welcome
+// Initial message
 addMessage("Bot", "Hello Neelakshi 👋! How can I help you today?", true);
