@@ -1,31 +1,43 @@
-document.getElementById("send-btn").addEventListener("click", sendMessage);
-document.getElementById("user-input").addEventListener("keypress", function (e) {
+const API_URL = "https://neelakshi-ai-chatbot-api.onrender.com/chat"; // your backend URL
+
+const chatBox = document.getElementById("chat-box");
+const userInput = document.getElementById("user-input");
+const sendBtn = document.getElementById("send-btn");
+
+function addMessage(sender, message) {
+  const messageDiv = document.createElement("div");
+  messageDiv.classList.add("message", sender);
+  messageDiv.innerHTML = `<strong>${sender === "bot" ? "Bot" : "You"}:</strong> ${message}`;
+  chatBox.appendChild(messageDiv);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+sendBtn.addEventListener("click", sendMessage);
+userInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") sendMessage();
 });
 
 async function sendMessage() {
-  const userInput = document.getElementById("user-input");
-  const chatBox = document.getElementById("chat-box");
   const userMessage = userInput.value.trim();
+  if (!userMessage) return;
 
-  if (userMessage === "") return;
-
-  chatBox.innerHTML += `<div class="message user"><strong>You:</strong> ${userMessage}</div>`;
+  addMessage("user", userMessage);
   userInput.value = "";
-  chatBox.scrollTop = chatBox.scrollHeight;
 
   try {
-    const response = await fetch("https://neelakshi-ai-chatbot-api.onrender.com/chat", {
+    const response = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: userMessage }),
     });
 
-    const data = await response.json();
-    chatBox.innerHTML += `<div class="message bot"><strong>Bot:</strong> ${data.reply}</div>`;
-  } catch (error) {
-    chatBox.innerHTML += `<div class="message bot error"><strong>Bot:</strong> ⚠️ Error connecting to server!</div>`;
-  }
+    if (!response.ok) {
+      throw new Error("Server error");
+    }
 
-  chatBox.scrollTop = chatBox.scrollHeight;
+    const data = await response.json();
+    addMessage("bot", data.reply || "⚠️ No response from bot.");
+  } catch (error) {
+    addMessage("bot", "⚠️ Error connecting to server!");
+  }
 }
