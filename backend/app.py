@@ -1,75 +1,41 @@
-import os
-import google.generativeai as genai
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
-from dotenv import load_dotenv
-from pydantic import BaseModel
+import uvicorn
 
-# ==============================
-# ✅ Load Gemini API Key
-# ==============================
-load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-
+# Create the FastAPI app
 app = FastAPI()
 
-# ==============================
-# ✅ Allow Frontend Access
-# ==============================
+# Allow your frontend (e.g., your chatbot UI) to connect
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # for development; restrict later to your frontend URL
+    allow_origins=["*"],  # you can later replace "*" with your frontend URL for safety
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ==============================
-# ✅ Data Models
-# ==============================
-class Message(BaseModel):
-    role: str
-    content: str
-
-class ChatRequest(BaseModel):
-    messages: list[Message]
-
-# ==============================
-# ✅ Root Endpoint
-# ==============================
+# Root route (for testing if backend is live)
 @app.get("/")
-async def index():
+def root():
     return {"status": "Backend is running fine ✅"}
 
-# ==============================
-# ✅ Normal Chat Endpoint
-# ==============================
+# Example chatbot endpoint (you can modify this as you like)
 @app.post("/chat")
-async def chat(req: ChatRequest):
-    chat_format = [{"role": m.role, "parts": [m.content]} for m in req.messages]
+async def chat(request: Request):
+    data = await request.json()
+    user_message = data.get("message", "")
 
-    try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(chat_format)
-        return {"reply": response.text}
-    except Exception as e:
-        return JSONResponse(content={"reply": f"⚠️ Error: {e}"}, status_code=500)
+    # Simple example logic — you can replace this with your chatbot code
+    if "hello" in user_message.lower():
+        reply = "Hi there 👋! How can I help you today?"
+    elif "how are you" in user_message.lower():
+        reply = "I'm just a bot, but I’m doing great! 😄"
+    else:
+        reply = f"You said: {user_message}"
 
-# ==============================
-# ✅ Streaming Chat Endpoint
-# ==============================
-@app.post("/chat-stream")
-async def chat_stream(req: ChatRequest):
-    chat_format = [{"role": m.role, "parts": [m.content]} for m in req.messages]
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    return {"reply": reply}
 
-    def generate():
-        try:
-            for chunk in model.generate_content(chat_format, stream=True):
-                if chunk.text:
-                    yield chunk.text
-        except Exception as e:
-            yield f"[Error: {e}]"
 
-    return StreamingResponse(generate(), media_type="text/plain")
+# Run locally (Render will ignore this since it uses the Start Command)
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=10000)
