@@ -1,51 +1,57 @@
 // script.js
-
-// ✅ Use your actual backend URL
-const API_BASE_URL = "https://neelakshi-ai-chatbot.onrender.com";
-
 const chatContainer = document.getElementById("chat-container");
-const inputField = document.getElementById("user-input");
+const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 
-// Add message to chat
-function addMessage(sender, text, isBot = false) {
-  const msgDiv = document.createElement("div");
-  msgDiv.classList.add("message");
-  msgDiv.classList.add(isBot ? "bot" : "user");
-  msgDiv.innerHTML = `<b>${isBot ? "Bot" : "You"}:</b> ${text}`;
-  chatContainer.appendChild(msgDiv);
+// 🔹 Change this to your backend URL (no trailing slash)
+const API_URL = "https://neelakshi-ai-chatbot.onrender.com/chat";
+
+function addMessage(sender, text) {
+  const msg = document.createElement("div");
+  msg.classList.add("message");
+  msg.innerHTML =
+    `<strong>${sender}:</strong> ${text.replace(/\n/g, "<br>")}`;
+  chatContainer.appendChild(msg);
   chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
-// Send message to API
 async function sendMessage() {
-  const text = inputField.value.trim();
+  const text = userInput.value.trim();
   if (!text) return;
 
   addMessage("You", text);
-  inputField.value = "";
+  userInput.value = "";
+  addMessage("Bot", "⏳ Typing...");
 
   try {
-    const response = await fetch(`${API_BASE_URL}/chat`, {
+    const response = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text }),
     });
 
-    if (!response.ok) throw new Error(`Server error: ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error ${response.status}`);
+    }
+
     const data = await response.json();
-    addMessage("Bot", data.reply || "⚠️ No reply from server.", true);
-  } catch (err) {
-    console.error("Chat error:", err);
-    addMessage("Bot", "⚠️ Error connecting to server!", true);
+    const reply = data.reply || "⚠️ No response from bot.";
+    
+    // Remove the "Typing..." message and add bot's reply
+    chatContainer.lastChild.remove();
+    addMessage("Bot", reply);
+
+  } catch (error) {
+    chatContainer.lastChild.remove();
+    addMessage("Bot", "⚠️ Error connecting to server!");
+    console.error("Chat error:", error);
   }
 }
 
-// Send message when clicking or pressing Enter
+// ✅ When "Send" button is clicked
 sendBtn.addEventListener("click", sendMessage);
-inputField.addEventListener("keypress", (e) => {
+
+// ✅ When "Enter" key is pressed
+userInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") sendMessage();
 });
-
-// Initial message
-addMessage("Bot", "Hello Neelakshi 👋! How can I help you today?", true);
