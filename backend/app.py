@@ -6,38 +6,33 @@ import os
 
 app = FastAPI()
 
-# Allow all origins for frontend
+# Allow frontend requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Allow all for now
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FRONTEND_DIR = os.path.join(BASE_DIR, "../public")
+# Path to frontend (static) folder
+current_dir = os.path.dirname(os.path.abspath(__file__))
+frontend_dir = os.path.join(current_dir, "../public")
 
-app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
-
-# ✅ HEAD + GET for root
-@app.head("/")
-async def head_index():
-    return JSONResponse({"status": "ok"})
+# Mount static files (JS, CSS)
+app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
 
 @app.get("/")
 async def serve_index():
-    index_path = os.path.join(FRONTEND_DIR, "index.html")
+    index_path = os.path.join(frontend_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
     return JSONResponse({"error": "index.html not found"}, status_code=404)
 
-# ✅ Health check
 @app.get("/status")
 async def status():
-    return {"status": "Backend is alive ✅"}
+    return {"status": "✅ Backend is running fine!"}
 
-# ✅ Chat endpoint
 @app.post("/chat")
 async def chat(request: Request):
     data = await request.json()
@@ -46,7 +41,7 @@ async def chat(request: Request):
     if "hello" in user_message:
         reply = "Hi there 👋! How can I help you today?"
     elif "bye" in user_message:
-        reply = "Goodbye! 👋"
+        reply = "Goodbye! 👋 Have a great day!"
     else:
         reply = f"You said: {user_message}"
 
