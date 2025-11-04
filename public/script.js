@@ -1,57 +1,43 @@
-// script.js
-const chatContainer = document.getElementById("chat-container");
+const chatBox = document.getElementById("chat-box");
 const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 
-// 🔹 Change this to your backend URL (no trailing slash)
-const API_URL = "https://neelakshi-ai-chatbot.onrender.com/chat";
+// Backend API URL (your deployed backend)
+const API_URL = "https://neelakshi-ai-chatbot-api.onrender.com/chat";
 
-function addMessage(sender, text) {
-  const msg = document.createElement("div");
-  msg.classList.add("message");
-  msg.innerHTML =
-    `<strong>${sender}:</strong> ${text.replace(/\n/g, "<br>")}`;
-  chatContainer.appendChild(msg);
-  chatContainer.scrollTop = chatContainer.scrollHeight;
+function appendMessage(sender, text, className) {
+  const messageDiv = document.createElement("div");
+  messageDiv.classList.add("message", className);
+  messageDiv.innerHTML = `<strong>${sender}:</strong> ${text}`;
+  chatBox.appendChild(messageDiv);
+  chatBox.scrollTop = chatBox.scrollHeight;
 }
 
 async function sendMessage() {
   const text = userInput.value.trim();
   if (!text) return;
 
-  addMessage("You", text);
+  appendMessage("You", text, "user");
   userInput.value = "";
-  addMessage("Bot", "⏳ Typing...");
 
   try {
-    const response = await fetch(API_URL, {
+    const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text }),
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error ${response.status}`);
-    }
-
-    const data = await response.json();
-    const reply = data.reply || "⚠️ No response from bot.";
-    
-    // Remove the "Typing..." message and add bot's reply
-    chatContainer.lastChild.remove();
-    addMessage("Bot", reply);
-
+    const data = await res.json();
+    appendMessage("Bot", data.reply || "⚠️ No reply received!", "bot");
   } catch (error) {
-    chatContainer.lastChild.remove();
-    addMessage("Bot", "⚠️ Error connecting to server!");
-    console.error("Chat error:", error);
+    appendMessage("Bot", "⚠️ Error connecting to server!", "bot");
   }
 }
 
-// ✅ When "Send" button is clicked
+// Send button click
 sendBtn.addEventListener("click", sendMessage);
 
-// ✅ When "Enter" key is pressed
+// Press Enter key to send
 userInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") sendMessage();
 });
