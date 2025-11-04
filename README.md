@@ -1,9 +1,7 @@
 # Neelakshi AI Chatbot
 
-Frontend (public/) + FastAPI Backend (backend/)  
-Deployed on Render.
-
-## Deployment Tips
-- Backend service root → `backend`
-- Build command → `pip install -r requirements.txt`
-- Start command → `uvicorn app:app --host 0.0.0.0 --port 10000`
+## Run locally
+pip install -r requirements.txt
+export OPENAI_API_KEY="sk-..."
+uvicorn app:app --reload --host 0.0.0.0 --port 10000
+Open http://localhost:10000 in browser.
