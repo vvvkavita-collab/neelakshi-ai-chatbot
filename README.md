@@ -1,12 +1,9 @@
-# Neelakshi AI Chatbot 🌟
+# Neelakshi AI Chatbot
 
-This is a custom chatbot powered by **Google Gemini API (2.5-pro)**  
-It supports Hindi & English queries and runs with FastAPI + HTML/CSS/JS frontend.
+Frontend (public/) + FastAPI Backend (backend/)  
+Deployed on Render.
 
-## ⚙️ Structure
-- **Backend:** FastAPI (in `/backend`)
-- **Frontend:** Static (in `/public`)
-- **Hosting:** Render (Backend API + Static Site)
-
-## 🧠 Setup for Local Run
-1. Create `.env` inside `/backend`:
+## Deployment Tips
+- Backend service root → `backend`
+- Build command → `pip install -r requirements.txt`
+- Start command → `uvicorn app:app --host 0.0.0.0 --port 10000`
