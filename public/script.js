@@ -2,7 +2,7 @@ const chatContainer = document.getElementById("chat-container");
 const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 
-// ✅ Update your Deployed API Base URL here:
+// ✅ Update your deployed backend API URL here
 const API_BASE_URL = "https://neelakshi-ai-chatbot.onrender.com";
 
 async function sendMessage() {
@@ -20,7 +20,7 @@ async function sendMessage() {
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({ query: message }),
+            body: JSON.stringify({ message: message }), // ⚡ Corrected key
         });
 
         if (!response.ok) {
@@ -29,7 +29,7 @@ async function sendMessage() {
 
         const data = await response.json();
         removeTypingIndicator();
-        appendMessage(data.answer || "No response received", "bot");
+        appendMessage(data.reply || "No response received", "bot"); // ⚡ Corrected key
 
     } catch (error) {
         removeTypingIndicator();
@@ -42,7 +42,12 @@ function appendMessage(message, sender, typing = false) {
     const msgDiv = document.createElement("div");
     msgDiv.classList.add("message", sender);
     if (typing) msgDiv.classList.add("typing");
-    msgDiv.innerText = message;
+
+    const bubbleDiv = document.createElement("div");
+    bubbleDiv.classList.add("bubble");
+    bubbleDiv.innerHTML = message;
+    msgDiv.appendChild(bubbleDiv);
+
     chatContainer.appendChild(msgDiv);
     chatContainer.scrollTop = chatContainer.scrollHeight;
 }
