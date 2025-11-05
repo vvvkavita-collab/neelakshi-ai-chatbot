@@ -1,8 +1,8 @@
-const chatContainer = document.getElementById("chat-container");
+const chatBox = document.getElementById("chat-box");
 const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 
-// ⚡ Update your Render backend URL here
+// ✅ Update your Render backend URL here
 const API_BASE_URL = "https://neelakshi-ai-chatbot.onrender.com";
 
 async function sendMessage() {
@@ -18,7 +18,7 @@ async function sendMessage() {
         const response = await fetch(`${API_BASE_URL}/chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: message }) // ✅ matches backend
+            body: JSON.stringify({ message })
         });
 
         if (!response.ok) throw new Error(`Server Error: ${response.status}`);
@@ -44,8 +44,8 @@ function appendMessage(message, sender, typing = false) {
     bubbleDiv.innerHTML = message;
     msgDiv.appendChild(bubbleDiv);
 
-    chatContainer.appendChild(msgDiv);
-    chatContainer.scrollTop = chatContainer.scrollHeight;
+    chatBox.appendChild(msgDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
 }
 
 function removeTypingIndicator() {
