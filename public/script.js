@@ -2,7 +2,7 @@ const chatContainer = document.getElementById("chat-container");
 const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 
-// ✅ Update your deployed backend API URL here
+// ⚡ Update your Render backend URL here
 const API_BASE_URL = "https://neelakshi-ai-chatbot.onrender.com";
 
 async function sendMessage() {
@@ -17,19 +17,15 @@ async function sendMessage() {
     try {
         const response = await fetch(`${API_BASE_URL}/chat`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ message: message }), // ⚡ Corrected key
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: message }) // ✅ matches backend
         });
 
-        if (!response.ok) {
-            throw new Error(`Server Error: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`Server Error: ${response.status}`);
 
         const data = await response.json();
         removeTypingIndicator();
-        appendMessage(data.reply || "No response received", "bot"); // ⚡ Corrected key
+        appendMessage(data.reply || "No response received", "bot");
 
     } catch (error) {
         removeTypingIndicator();
@@ -58,6 +54,6 @@ function removeTypingIndicator() {
 }
 
 sendBtn.addEventListener("click", sendMessage);
-userInput.addEventListener("keypress", function (e) {
+userInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") sendMessage();
 });
