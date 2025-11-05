@@ -1,20 +1,21 @@
-import requests
-from bs4 import BeautifulSoup
 import feedparser
 
 class NewsService:
 
     def google_news(self, query, num=5):
-        rss = f"https://news.google.com/rss/search?q={query}&hl=hi&gl=IN&ceid=IN:hi"
-        feed = feedparser.parse(rss)
-        results = []
-        for item in feed.entries[:num]:
-            results.append(item.title)
-        return results
+        try:
+            rss = f"https://news.google.com/rss/search?q={query}&hl=hi&gl=IN&ceid=IN:hi"
+            feed = feedparser.parse(rss)
+            results = [item.title for item in feed.entries[:num]]
+            if not results:
+                results = ["❌ No news found for this query."]
+            return results
+        except Exception as e:
+            print("Error fetching Google News:", e)
+            return ["❌ News service is currently unavailable."]
 
     def get_news(self, user_msg: str):
         user_msg = user_msg.lower()
-
         # State/City based logic
         places = ["jaipur", "delhi", "udaipur", "kota", "rajasthan", "mumbai"]
         for p in places:
