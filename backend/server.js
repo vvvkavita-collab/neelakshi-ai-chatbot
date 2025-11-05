@@ -5,7 +5,7 @@ import path from "path";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { fileURLToPath } from "url";
 import fetch from "node-fetch";
-import { parse } from "rss-parser";
+import Parser from "rss-parser";
 
 dotenv.config();
 
@@ -20,8 +20,9 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const parser = new Parser();
 
-// 🔹 Helper: Weather
+// 🔹 Weather
 async function getWeather(city = "Jaipur") {
   try {
     const geo = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${city}&count=1`);
@@ -38,20 +39,17 @@ async function getWeather(city = "Jaipur") {
   }
 }
 
-// 🔹 Helper: Hindi News
+// 🔹 News
 async function getHindiNews() {
   try {
-    const feed = await fetch("https://news.google.com/rss?hl=hi&gl=IN&ceid=IN:hi");
-    const text = await feed.text();
-    const parser = new parse();
-    const parsed = await parser.parseString(text);
-    return parsed.items.slice(0, 5).map((item, i) => `${i + 1}. ${item.title}`);
+    const feed = await parser.parseURL("https://news.google.com/rss?hl=hi&gl=IN&ceid=IN:hi");
+    return feed.items.slice(0, 5).map((item, i) => `${i + 1}. ${item.title}`);
   } catch {
     return ["❌ खबरें लोड नहीं हो सकीं।"];
   }
 }
 
-// 🔹 Helper: Gemini Prompt
+// 🔹 Gemini Prompt
 function buildPrompt(userMessage) {
   const today = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
   return `Today's date: ${today}
@@ -62,7 +60,7 @@ User asked: ${userMessage}
 Please give a complete answer. If it's a how-to question, use numbered steps. If it's a factual query, give a short summary. If the user asked in Hindi, reply in Hindi. If in English, reply in English. Keep it clear, helpful, and no longer than 6 sentences.`;
 }
 
-// ✅ Chat route
+// 🔹 Chat route
 app.post("/chat", async (req, res) => {
   try {
     const userMessage = req.body.message?.trim();
@@ -70,20 +68,17 @@ app.post("/chat", async (req, res) => {
 
     const lower = userMessage.toLowerCase();
 
-    // 🔹 News
     if (["news", "खबर", "समाचार", "headline"].some(w => lower.includes(w))) {
       const headlines = await getHindiNews();
       return res.json({ reply: `🗞️ आज की टॉप हिंदी खबरें:\n\n${headlines.join("\n")}` });
     }
 
-    // 🔹 Weather
     if (lower.includes("weather") || lower.includes("मौसम")) {
       const city = lower.replace("weather", "").replace("मौसम", "").trim() || "Jaipur";
       const weather = await getWeather(city);
       return res.json({ reply: weather || `⚠️ ${city} के मौसम की जानकारी नहीं मिल सकी।` });
     }
 
-    // 🔹 General Gemini response
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const result = await model.generateContent(buildPrompt(userMessage));
     const reply = result.response.text();
@@ -97,7 +92,6 @@ app.post("/chat", async (req, res) => {
   }
 });
 
-// ✅ Root route
 app.get("/", (req, res) => {
   res.send("<h2>✅ Neelakshi AI Chatbot is running!</h2>");
 });
