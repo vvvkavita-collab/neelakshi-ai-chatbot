@@ -7,7 +7,7 @@ news_service = NewsService()
 
 @app.get("/")
 def home():
-    return {"status": "News Chatbot is Running ✅"}
+    return {"status": "✅ News Chatbot is Running Successfully"}
 
 @app.post("/chat")
 async def chat(request: Request):
@@ -16,11 +16,10 @@ async def chat(request: Request):
 
     news = news_service.get_news(user_msg)
 
-    response = {
+    return {
         "query": user_msg,
         "results": news
     }
-    return response
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
