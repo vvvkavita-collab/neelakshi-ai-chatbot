@@ -1,8 +1,6 @@
 {
-  "name": "my-chatbot",
+  "name": "neelakshi-chatbot",
   "version": "1.0.0",
-  "description": "A simple chatbot using Gemini API and Express.js",
-  "main": "server.js",
   "type": "module",
   "scripts": {
     "start": "node server.js",
@@ -12,7 +10,9 @@
     "@google/generative-ai": "^0.24.1",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "node-fetch": "^3.3.2",
+    "rss-parser": "^3.12.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"
