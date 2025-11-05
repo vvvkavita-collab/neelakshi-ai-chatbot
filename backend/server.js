@@ -17,7 +17,7 @@ const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "../public")));
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const parser = new Parser();
@@ -92,8 +92,8 @@ app.post("/chat", async (req, res) => {
   }
 });
 
-app.get("/", (req, res) => {
-  res.send("<h2>✅ Neelakshi AI Chatbot is running!</h2>");
+app.get("/ping", (req, res) => {
+  res.json({ message: "pong" });
 });
 
 app.listen(port, () => {
