@@ -1,44 +1,64 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 import google.generativeai as genai
+import requests
+from bs4 import BeautifulSoup
+from datetime import datetime
 import os
+from dotenv import load_dotenv
 
-app = Flask(__name__)
-CORS(app)
+# Load environment variables
+load_dotenv()
 
-api_key = os.getenv("GEMINI_API_KEY")
+# Configure Gemini API
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-if not api_key:
-    print("❌ ERROR: GEMINI_API_KEY not found in environment!")
-else:
-    print("✅ GEMINI_API_KEY loaded successfully.")
-    genai.configure(api_key=api_key)
+# Initialize FastAPI app
+app = FastAPI()
 
-@app.route("/")
-def home():
-    return jsonify({"message": "✅ Neelakshi AI Chatbot Backend is Running!"})
+# Allow frontend to connect
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@app.route("/chat", methods=["POST"])
-def chat():
+# ----------- CHAT ENDPOINT -------------
+@app.post("/chat")
+async def chat(request: Request):
+    data = await request.json()
+    user_message = data.get("message", "").strip()
+
+    if not user_message:
+        return {"reply": "Please type something first 😊"}
+
     try:
-        data = request.get_json()
-        user_message = data.get("message", "").strip()
+        # Step 1: Check if user is asking for today's news
+        if "news" in user_message.lower() or "खबर" in user_message.lower():
+            url = "https://news.google.com/rss?hl=hi&gl=IN&ceid=IN:hi"
+            r = requests.get(url)
+            soup = BeautifulSoup(r.text, "xml")
+            items = soup.find_all("item")[:5]
 
-        if not user_message:
-            return jsonify({"reply": "Please type something!"})
+            headlines = "\n".join([f"{i+1}. {item.title.text}" for i, item in enumerate(items)])
+            return {"reply": f"📰 आज की ताज़ा खबरें ({datetime.now().strftime('%d %B %Y')}):\n\n{headlines}"}
 
-        if not api_key:
-            return jsonify({"reply": "⚠️ Gemini API key missing on server!"})
+        # Step 2: Normal chat using Gemini
+        current_date = datetime.now().strftime("%d %B %Y")
+        context = f"Today’s date is {current_date}. Answer naturally and clearly."
 
-        # ✅ Use correct new model format (v1)
-        model = genai.GenerativeModel("gemini-1.5-flash")  # <- No "models/" prefix
-        response = model.generate_content(user_message)
+        model = genai.GenerativeModel("models/gemini-2.5-flash")
+        response = model.generate_content([context, user_message])
 
-        return jsonify({"reply": response.text})
+        return {"reply": response.text}
 
     except Exception as e:
-        print("⚠️ Error in /chat:", e)
-        return jsonify({"reply": f"⚠️ Error: {str(e)}"})
+        return {"reply": f"⚠️ Error: {str(e)}"}
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+
+# ----------- TEST ROUTE -------------
+@app.get("/")
+async def root():
+    return {"message": "Neelakshi AI Chatbot backend is running fine ✅"}
