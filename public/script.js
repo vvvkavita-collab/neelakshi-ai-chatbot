@@ -1,88 +1,58 @@
-// ===============================
-// Neelakshi AI Chatbot (Frontend)
-// ChatGPT-style UI
-// ===============================
-
-const chatBox = document.getElementById("chat-box");
+const chatContainer = document.getElementById("chat-container");
 const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
-const historyList = document.getElementById("history");
 
-let history = [];
+// ✅ Update your Deployed API Base URL here:
+const API_BASE_URL = "https://neelakshi-ai-chatbot.onrender.com";
 
-// Add a message (user/bot)
-function appendMessage(sender, text) {
-  const messageDiv = document.createElement("div");
-  messageDiv.classList.add("message", sender);
-
-  const bubble = document.createElement("div");
-  bubble.classList.add("bubble");
-
-  // Markdown-style formatting
-  let html = text
-    .replace(/```([\s\S]*?)```/g, "<pre><code>$1</code></pre>")
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.*?)\*/g, "<em>$1</em>")
-    .replace(/`(.*?)`/g, "<code>$1</code>")
-    .replace(/\n/g, "<br>");
-
-  bubble.innerHTML = html;
-
-  messageDiv.appendChild(bubble);
-  chatBox.appendChild(messageDiv);
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-// Send message to backend
 async function sendMessage() {
-  const text = userInput.value.trim();
-  if (!text) return;
+    const message = userInput.value.trim();
+    if (!message) return;
 
-  appendMessage("user", text);
-  userInput.value = "";
+    appendMessage(message, "user");
+    userInput.value = "";
 
-  try {
-    const response = await fetch("https://neelakshi-ai-chatbot.onrender.com/chat", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ message: text }),
-});
+    appendMessage("Typing...", "bot", true);
 
-    const data = await response.json();
-    appendMessage("bot", data.reply);
-    saveToHistory(text, data.reply);
-  } catch (error) {
-    appendMessage("bot", "⚠️ Error: Unable to connect to the server.");
-  }
+    try {
+        const response = await fetch(`${API_BASE_URL}/chat`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ query: message }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`Server Error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        removeTypingIndicator();
+        appendMessage(data.answer || "No response received", "bot");
+
+    } catch (error) {
+        removeTypingIndicator();
+        appendMessage("⚠️ Server Connection Error! Try again later.", "bot");
+        console.error("Error in Chat:", error);
+    }
 }
 
-// Manage chat history
-function saveToHistory(userMsg, botMsg) {
-  const entry = { userMsg, botMsg, time: new Date().toLocaleTimeString() };
-  history.unshift(entry);
-  updateHistory();
+function appendMessage(message, sender, typing = false) {
+    const msgDiv = document.createElement("div");
+    msgDiv.classList.add("message", sender);
+    if (typing) msgDiv.classList.add("typing");
+    msgDiv.innerText = message;
+    chatContainer.appendChild(msgDiv);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
-function updateHistory() {
-  historyList.innerHTML = "";
-  history.forEach((item, index) => {
-    const li = document.createElement("li");
-    li.textContent = `Chat ${index + 1}`;
-    li.addEventListener("click", () => loadChat(index));
-    historyList.appendChild(li);
-  });
+function removeTypingIndicator() {
+    const typingMsg = document.querySelector(".message.typing");
+    if (typingMsg) typingMsg.remove();
 }
 
-function loadChat(index) {
-  const chat = history[index];
-  chatBox.innerHTML = "";
-  appendMessage("user", chat.userMsg);
-  appendMessage("bot", chat.botMsg);
-}
-
-// Listeners
 sendBtn.addEventListener("click", sendMessage);
-userInput.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") sendMessage();
+userInput.addEventListener("keypress", function (e) {
+    if (e.key === "Enter") sendMessage();
 });
-
