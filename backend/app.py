@@ -18,7 +18,8 @@ load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 # Load SpaCy for location detection
-nlp = spacy.load("en_core_web_sm")
+import en_core_web_sm
+nlp = en_core_web_sm.load()
 
 # ==============================
 #  Initialize FastAPI App
@@ -160,3 +161,4 @@ async def chat(request: Request):
 @app.get("/")
 async def root():
     return {"message": "✅ Neelakshi AI Chatbot backend is running fine!"}
+
