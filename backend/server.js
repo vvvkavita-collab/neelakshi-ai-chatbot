@@ -22,20 +22,24 @@ app.use(express.static(path.join(__dirname, "../public")));
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const parser = new Parser();
 
-// 🔹 Weather
+// 🔹 Weather (location-aware)
 async function getWeather(city = "Jaipur") {
   try {
-    const geo = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${city}&count=1`);
+    const geo = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
     const geoData = await geo.json();
-    if (!geoData.results) return null;
 
-    const { latitude, longitude } = geoData.results[0];
+    if (!geoData.results || geoData.results.length === 0) {
+      return `⚠️ क्षमा करें, "${city}" के लिए मौसम की जानकारी नहीं मिल सकी। कृपया सही शहर का नाम दें।`;
+    }
+
+    const { latitude, longitude, name, country } = geoData.results[0];
     const weather = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
     const weatherData = await weather.json();
     const { temperature, windspeed } = weatherData.current_weather;
-    return `🌤️ ${city} का तापमान ${temperature}°C है और हवा की गति ${windspeed} km/h है।`;
+
+    return `🌤️ ${name}, ${country} का तापमान ${temperature}°C है और हवा की गति ${windspeed} km/h है।`;
   } catch {
-    return null;
+    return `⚠️ मौसम की जानकारी प्राप्त करने में त्रुटि हुई। कृपया बाद में प्रयास करें।`;
   }
 }
 
@@ -90,7 +94,7 @@ app.post("/chat", async (req, res) => {
     if (lower.includes("weather") || lower.includes("मौसम")) {
       const city = lower.replace("weather", "").replace("मौसम", "").trim() || "Jaipur";
       const weather = await getWeather(city);
-      return res.json({ reply: weather || `⚠️ ${city} के मौसम की जानकारी नहीं मिल सकी।` });
+      return res.json({ reply: weather });
     }
 
     // 🔹 Gemini AI reply
@@ -110,11 +114,6 @@ app.post("/chat", async (req, res) => {
 // 🔹 Ping route for testing
 app.get("/ping", (req, res) => {
   res.json({ message: "pong" });
-});
-
-// 🔹 Root route
-app.get("/", (req, res) => {
-  res.send("<h2>✅ Neelakshi AI Chatbot is running!</h2>");
 });
 
 app.listen(port, () => {
