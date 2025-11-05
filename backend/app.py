@@ -1,18 +1,19 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import requests
 import os
 from google.generativeai import configure, GenerativeModel
+from backend import news_service  # import NewsService
 
-# Google AI Key
+# Configure Google AI Key
 configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 model = GenerativeModel("gemini-pro")
+news_service_obj = news_service.NewsService()
 
 app = FastAPI()
 
-# ✅ CORS Fix
+# ✅ CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,9 +31,24 @@ def home():
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
-    prompt = req.message
+    user_msg = req.message
+    ai_reply = ""
 
-    response = model.generate_content(prompt)
-    ai_reply = response.text
+    try:
+        # Check if user wants news
+        if any(word in user_msg.lower() for word in ["news", "खबर", "jaipur", "udaipur", "delhi", "mumbai", "rajasthan", "kota"]):
+            news_list = news_service_obj.get_news(user_msg)
+            ai_reply = "\n".join(news_list)
+        else:
+            # Generate AI response using Google Gemini
+            response = model.generate_content(user_msg, timeout=10)  # 10s timeout
+            ai_reply = response.text
+    except Exception as e:
+        print("Error in /chat:", e)
+        # Fallback message
+        ai_reply = (
+            "⚠️ Sorry, I am unable to fetch live response right now.\n"
+            "For example, the current Collector of Jaipur is Dr. Jitendra Kumar Soni (IAS 2010 batch, Rajasthan cadre)."
+        )
 
     return {"reply": ai_reply}
