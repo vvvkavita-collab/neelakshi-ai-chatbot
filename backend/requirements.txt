@@ -8,3 +8,7 @@ beautifulsoup4
 lxml
 html5lib
 feedparser
+pip install spacy
+pip install requests
+python -m spacy download en_core_web_sm
+
