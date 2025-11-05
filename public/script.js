@@ -42,7 +42,7 @@ async function sendMessage() {
   userInput.value = "";
 
   try {
-    const response = await fetch("http://localhost:8000/chat", {
+    const response = await fetch("https://neelakshi-ai-chatbot.onrender.com/chat", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ message: text }),
@@ -85,3 +85,4 @@ sendBtn.addEventListener("click", sendMessage);
 userInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") sendMessage();
 });
+
