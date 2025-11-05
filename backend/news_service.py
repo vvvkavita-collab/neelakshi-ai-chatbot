@@ -16,13 +16,11 @@ class NewsService:
 
     def get_news(self, user_msg: str):
         user_msg = user_msg.lower()
-        # State/City based logic
         places = ["jaipur", "delhi", "udaipur", "kota", "rajasthan", "mumbai"]
         for p in places:
             if p in user_msg:
                 return self.google_news(f"{p} news")
 
-        # General news
         if "news" in user_msg or "खबर" in user_msg:
             return self.google_news("India news")
 
