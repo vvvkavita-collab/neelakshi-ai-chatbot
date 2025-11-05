@@ -1,47 +1,66 @@
 import requests
-import spacy
+from bs4 import BeautifulSoup
+import pandas as pd
 
-nlp = spacy.load("en_core_web_sm")
-NEWS_API_KEY = "YOUR_NEWS_API_KEY"
+class NewsService:
+    def __init__(self):
+        self.locations = [
+            "jaipur", "ajmer", "kota", "udaipur", "jodhpur", "alwar",
+            "rajasthan", "delhi", "mumbai", "chennai", "kolkata", "india"
+        ]
 
-def extract_location(query):
-    doc = nlp(query)
-    for ent in doc.ents:
-        if ent.label_ in ["GPE", "LOC"]:
-            return ent.text
-    
-    hindi_locations = {
-        "राजस्थान": "Rajasthan",
-        "जयपुर": "Jaipur",
-        "कोटा": "Kota",
-        "उदयपुर": "Udaipur",
-        "जोधपुर": "Jodhpur",
-    }
-    for hi, en in hindi_locations.items():
-        if hi in query:
-            return en
-    return None
+    def fetch_google_news(self, query):
+        url = f"https://news.google.com/rss/search?q={query}+news+india&hl=en-IN&gl=IN&ceid=IN:en"
+        try:
+            response = requests.get(url, timeout=10)
+            soup = BeautifulSoup(response.text, "xml")
+            items = soup.find_all("item")[:10]
+            news_list = [
+                {
+                    "title": item.title.text,
+                    "link": item.link.text
+                } for item in items
+            ]
+            return news_list
+        except:
+            return []
 
-def get_news_by_location(loc=None):
-    if loc:
-        url = f"https://newsapi.org/v2/everything?q={loc}&language=hi&sortBy=publishedAt&apiKey={NEWS_API_KEY}"
-    else:
-        url = f"https://newsapi.org/v2/top-headlines?country=in&language=hi&apiKey={NEWS_API_KEY}"
+    def analyze_query(self, user_msg):
+        text = user_msg.lower()
 
-    data = requests.get(url).json()
-    return data.get("articles", [])[:5]
+        detected_location = None
+        for loc in self.locations:
+            if loc.lower() in text:
+                detected_location = loc.title()
+                break
 
-def format_news(user_text):
-    loc = extract_location(user_text)
-    if loc:
-        articles = get_news_by_location(loc)
-        if not articles:
-            return f"'{loc}' se sambandhit news nahi mili 😔"
-        response = f"📰 {loc} ki Top 5 Hindi News:\n\n"
-    else:
-        articles = get_news_by_location()
-        response = "📰 Aaj ki Top 5 Hindi News:\n\n"
+        category = "General"
+        if any(x in text for x in ["crime", "chor", "police"]):
+            category = "Crime"
+        elif any(x in text for x in ["sports", "match", "cricket"]):
+            category = "Sports"
+        elif any(x in text for x in ["barish", "weather"]):
+            category = "Weather"
+        elif any(x in text for x in ["siyasat", "politics", "modi", "bjp", "congress"]):
+            category = "Politics"
 
-    for i, item in enumerate(articles, start=1):
-        response += f"{i}. {item['title']}\n"
-    return response
+        return detected_location, category
+
+    def get_news(self, user_msg):
+        location, category = self.analyze_query(user_msg)
+
+        search_query = ""
+        if location:
+            search_query += location + " "
+        if category != "General":
+            search_query += category
+
+        if search_query.strip() == "":
+            search_query = "India news"
+
+        news_items = self.fetch_google_news(search_query)
+
+        if not news_items:
+            return [{"title": "No news found", "link": ""}]
+
+        return news_items
