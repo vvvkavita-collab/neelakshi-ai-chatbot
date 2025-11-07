@@ -3,32 +3,18 @@ import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
-dotenv.config();
 
+dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// ✅ Smart + ChatGPT-level AI instructions
-const SYSTEM_PROMPT = `
-You are "Neelakshi AI" — an intelligent AI chatbot like ChatGPT.
-
-✅ Answer ANY question accurately with latest information
-✅ Prefer Hindi if user writes Hindi, otherwise English
-✅ Do not restrict answers to any city or state
-✅ Give short + clear responses unless user requests detailed info
-✅ If the query is unclear → ask politely
-`;
-
-app.post("/chat", async (req, res) => {
+// ✅ Universal AI Assistant like ChatGPT
+app.post("/api/chat", async (req, res) => {
   try {
     const userMessage = req.body.message;
-
-    if (!OPENAI_API_KEY) {
-      return res.status(500).json({ error: "⚠️ OpenAI Key Missing!" });
-    }
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -37,25 +23,30 @@ app.post("/chat", async (req, res) => {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini", // ✅ Correct Model
+        model: "gpt-4.1-mini", // ✅ Free Tier Supported
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage }
-        ]
-      })
+          {
+            role: "system",
+            content:
+              "You are a smart AI assistant. Answer in the same language as the user.",
+          },
+          { role: "user", content: userMessage },
+        ],
+        max_tokens: 800,
+        temperature: 0.7,
+      }),
     });
 
     const data = await response.json();
-    
-    const botReply = data.choices?.[0]?.message?.content || "Sorry, I have no answer 😅";
+    const botReply =
+      data.choices?.[0]?.message?.content || "Sorry, I couldn't understand.";
 
-    res.json({ answer: botReply });
+    res.json({ reply: botReply });
   } catch (error) {
-    console.error("Chat Error:", error);
-    res.status(500).json({ error: "⚠️ Backend Error!" });
+    console.error("❌ Chat Error:", error);
+    res.status(500).json({ reply: "⚠️ Server Error! Try later." });
   }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`✅ Neelakshi AI Server running on PORT ${PORT}`));
-
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`✅ Server running on PORT ${PORT}`));
