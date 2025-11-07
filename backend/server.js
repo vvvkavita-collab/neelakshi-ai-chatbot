@@ -1,18 +1,19 @@
-const express = require("express");
-const axios = require("axios");
-const { Configuration, OpenAIApi } = require("openai");
-const cors = require("cors");
-require("dotenv").config();
+import express from "express";
+import axios from "axios";
+import OpenAI from "openai";
+import cors from "cors";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 // OpenAI configuration
-const configuration = new Configuration({
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-const openai = new OpenAIApi(configuration);
 
 // Web search function using SerpAPI
 async function webSearch(query) {
@@ -54,8 +55,8 @@ app.post("/ask", async (req, res) => {
     }
 
     // Step 2: GPT completion
-    const completion = await openai.createChatCompletion({
-      model: "gpt-4o-mini",  // or "gpt-4-turbo" if available
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // or "gpt-4-turbo" if available
       messages: [
         { role: "system", content: "You are a helpful, accurate assistant." },
         { role: "user", content: prompt },
@@ -64,7 +65,7 @@ app.post("/ask", async (req, res) => {
       max_tokens: 500,
     });
 
-    const answer = completion.data.choices[0].message.content;
+    const answer = completion.choices[0].message.content;
     res.json({ answer });
   } catch (err) {
     console.error(err);
