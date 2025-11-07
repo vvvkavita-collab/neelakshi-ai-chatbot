@@ -22,7 +22,7 @@ You are "Neelakshi AI" — an intelligent AI chatbot like ChatGPT.
 ✅ If the query is unclear → ask politely
 `;
 
-app.post("/api/chat", async (req, res) => {
+app.post("/chat", async (req, res) => {
   try {
     const userMessage = req.body.message;
 
@@ -58,3 +58,4 @@ app.post("/api/chat", async (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`✅ Neelakshi AI Server running on PORT ${PORT}`));
+
