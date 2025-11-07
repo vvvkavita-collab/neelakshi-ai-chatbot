@@ -1,8 +1,10 @@
+// ✅ frontend/script.js
+
 const chatBox = document.getElementById("chat-box");
 const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 
-// ✅ Update your Render backend URL here
+// ✅ Update with your Render URL only (already correct)
 const API_BASE_URL = "https://neelakshi-ai-chatbot.onrender.com";
 
 async function sendMessage() {
@@ -15,22 +17,21 @@ async function sendMessage() {
     appendMessage("Typing...", "bot", true);
 
     try {
-        const response = await fetch(`${API_BASE_URL}/chat`, {
+        const response = await fetch(`${API_BASE_URL}/api/chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ message })
         });
 
-        if (!response.ok) throw new Error(`Server Error: ${response.status}`);
-
         const data = await response.json();
         removeTypingIndicator();
-        appendMessage(data.reply || "No response received", "bot");
+
+        appendMessage(data.answer || "⚠️ No reply received", "bot");
 
     } catch (error) {
         removeTypingIndicator();
-        appendMessage("⚠️ Server Connection Error! Try again later.", "bot");
-        console.error("Error in Chat:", error);
+        appendMessage("⚠️ Server Error! Try later", "bot");
+        console.error(error);
     }
 }
 
