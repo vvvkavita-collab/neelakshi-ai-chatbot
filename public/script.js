@@ -2,7 +2,7 @@ const chatBox = document.getElementById("chat-box");
 const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 
-const API_BASE_URL = "https://neelakshi-ai-chatbot.onrender.com";
+const API_BASE_URL = "https://neelakshi-ai-chatbot-1.onrender.com";
 
 sendBtn.addEventListener("click", sendMessage);
 userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
@@ -50,4 +50,5 @@ function removeTypingIndicator() {
   const typing = document.getElementById("typing-indicator");
   if (typing) typing.remove();
 }
+
 
