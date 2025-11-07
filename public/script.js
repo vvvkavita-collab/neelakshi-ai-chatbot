@@ -15,10 +15,10 @@ async function sendMessage() {
 
   try {
     const res = await fetch("/ask", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: message })
-    });
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ question: message })
+});
 
     const data = await res.json();
     removeTypingIndicator();
@@ -46,3 +46,4 @@ function removeTypingIndicator() {
   const typing = document.getElementById("typing-indicator");
   if (typing) typing.remove();
 }
+
