@@ -2,43 +2,23 @@
 <html>
 <head>
   <title>Neelakshi AI Chatbot</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 30px; }
-    input { width: 300px; padding: 8px; }
-    button { padding: 8px 12px; }
-    p { margin-top: 20px; font-weight: bold; }
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>Neelakshi AI Chatbot</h1>
-  <input type="text" id="question" placeholder="Type your question here..." />
-  <button onclick="askQuestion()">Ask</button>
-  <p id="answer"></p>
+  <div class="sidebar">
+    <h2>Neelakshi AI</h2>
+    <ul id="history"></ul>
+  </div>
 
-  <script>
-    async function askQuestion() {
-      const question = document.getElementById("question").value;
-      if (!question) {
-        alert("Please type a question!");
-        return;
-      }
+  <div class="chat-container">
+    <header>Chat with Neelakshi AI</header>
+    <div id="chat-box"></div>
+    <div class="input-area">
+      <input type="text" id="user-input" placeholder="Type a message..." />
+      <button id="send-btn">Send</button>
+    </div>
+  </div>
 
-      document.getElementById("answer").innerText = "Loading...";
-
-      try {
-        const res = await fetch("https://neelakshi-ai-chatbot.onrender.com/ask", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question })
-        });
-
-        const data = await res.json();
-        document.getElementById("answer").innerText = data.answer;
-      } catch (err) {
-        console.error(err);
-        document.getElementById("answer").innerText = "Error fetching answer.";
-      }
-    }
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>
