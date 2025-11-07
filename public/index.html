@@ -1,38 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Neelakshi AI Chatbot</title>
-  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <h1>Ask Neelakshi AI</h1>
+  <input type="text" id="question" placeholder="Type your question here..." />
+  <button onclick="askQuestion()">Ask</button>
+  <p id="answer"></p>
 
-  <!-- Sidebar -->
-  <div class="sidebar">
-    <h2>💬 Chat History</h2>
-    <ul id="history"></ul>
-  </div>
-
-  <!-- Chat Section -->
-  <div class="chat-container">
-    <header>🤖 Neelakshi AI Chatbot</header>
-
-    <div id="chat-box">
-      <div class="message bot">
-        <div class="bubble">
-          Hello Neelakshi 👋<br />
-          I’m your AI chatbot. How can I help you today?
-        </div>
-      </div>
-    </div>
-
-    <div class="input-area">
-      <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off" />
-      <button id="send-btn">Send</button>
-    </div>
-  </div>
-
-  <script src="script.js"></script>
+  <script>
+    async function askQuestion() {
+      const question = document.getElementById("question").value;
+      const res = await fetch("http://localhost:10000/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question })
+      });
+      const data = await res.json();
+      document.getElementById("answer").innerText = data.answer;
+    }
+  </script>
 </body>
 </html>
