@@ -1,47 +1,46 @@
 import express from "express";
 import cors from "cors";
-import fetch from "node-fetch";
+import dotenv from "dotenv";
+import OpenAI from "openai";
+
+dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.send("✅ Backend running...");
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
-// ✅ This is the route Postman and frontend are calling
+// ✅ FINAL FIX ✅
 app.post("/api/chat", async (req, res) => {
   try {
     const { message } = req.body;
+    console.log("User message:", message);
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: message }]
-      })
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: message }],
     });
 
-    const data = await response.json();
-    console.log("OpenAI Response :", data);
+    console.log("✅ OpenAI Response:", JSON.stringify(completion, null, 2));
 
-    res.json({
-      reply: data?.choices?.[0]?.message?.content || "⚠ No reply from OpenAI"
-    });
+    const reply = completion.choices[0]?.message?.content || "⚠️ No reply received";
+    res.json({ reply });
 
   } catch (error) {
-    console.error("❌ Backend Error:", error);
-    res.status(500).json({ error: error.message || "Server failed" });
+    console.error("⛔ Backend Error:", error);
+
+    res.status(500).json({
+      error: "Backend Error",
+      details: error.message,
+    });
   }
 });
 
+// ✅ Render PORT auto detect
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Backend running on PORT: ${PORT}`);
-});
-
+app.listen(PORT, () =>
+  console.log(`✅ Backend running on http://localhost:${PORT}`)
+);
