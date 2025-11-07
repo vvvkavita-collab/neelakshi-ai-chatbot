@@ -8,22 +8,22 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// OpenAI configuration
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
 const openai = new OpenAIApi(configuration);
 
-// Example: Simple web search function using SerpAPI (or any API)
+// Web search function using SerpAPI
 async function webSearch(query) {
   try {
-    // Example using a free web search API (replace with actual API)
     const response = await axios.get("https://serpapi.com/search.json", {
       params: {
         q: query,
-        api_key: "YOUR_SERPAPI_KEY", // You need to sign up
+        api_key: process.env.SERPAPI_KEY,
       },
     });
+
     if (response.data.organic_results && response.data.organic_results.length > 0) {
       return response.data.organic_results[0].snippet;
     }
@@ -34,24 +34,28 @@ async function webSearch(query) {
   }
 }
 
+// Chat route
 app.post("/ask", async (req, res) => {
   const { question } = req.body;
 
+  if (!question) {
+    return res.status(400).json({ answer: "Please provide a question." });
+  }
+
   try {
-    // Step 1: Try web search for current info
+    // Step 1: Try web search
     const searchResult = await webSearch(question);
 
     let prompt = "";
     if (searchResult) {
-      // Give GPT the snippet from web search to answer accurately
-      prompt = `Answer the following question using this information: "${searchResult}"\nQuestion: ${question}`;
+      prompt = `Using this information: "${searchResult}", answer the question accurately.\nQuestion: ${question}`;
     } else {
-      // Use GPT only if no web info found
       prompt = `Answer this question accurately: ${question}`;
     }
 
+    // Step 2: GPT completion
     const completion = await openai.createChatCompletion({
-      model: "gpt-4o-mini", // Can also use GPT-4-turbo if you have
+      model: "gpt-4o-mini",  // or "gpt-4-turbo" if available
       messages: [
         { role: "system", content: "You are a helpful, accurate assistant." },
         { role: "user", content: prompt },
@@ -68,6 +72,8 @@ app.post("/ask", async (req, res) => {
   }
 });
 
-app.listen(process.env.PORT || 10000, () => {
-  console.log(`Server running on port ${process.env.PORT}`);
+// Start server
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
