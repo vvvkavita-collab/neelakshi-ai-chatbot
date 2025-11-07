@@ -1,42 +1,44 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
-import OpenAI from "openai";
+import fetch from "node-fetch";
 
-dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+app.get("/", (req, res) => {
+  res.send("✅ Backend running...");
 });
 
+// ✅ This is the route Postman and frontend are calling
 app.post("/api/chat", async (req, res) => {
   try {
-    const userMessage = req.body.message;
+    const { message } = req.body;
 
-    if (!userMessage) {
-      return res.json({ reply: "Please ask something." });
-    }
-
-    const response = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are Neelakshi AI: a smart, updated Indian AI assistant. Give accurate responses like ChatGPT."
-        },
-        { role: "user", content: userMessage }
-      ]
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: message }]
+      })
     });
 
-    res.json({ reply: response.choices[0].message.content });
+    const data = await response.json();
+    console.log("OpenAI Response :", data);
+
+    res.json({
+      reply: data?.choices?.[0]?.message?.content || "⚠ No reply from OpenAI"
+    });
+
   } catch (error) {
     console.error("❌ Backend Error:", error);
-    res.status(500).json({ reply: "⚠️ Error! Please try again later." });
+    res.status(500).json({ error: error.message || "Server failed" });
   }
 });
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`✅ Backend running on PORT: ${PORT}`));
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log(`🚀 Server live on port ${PORT}`));
