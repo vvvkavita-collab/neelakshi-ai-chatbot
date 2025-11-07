@@ -6,12 +6,9 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "express": "^4.21.2",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
-    "express": "^4.21.2",
-    "openai": "^4.11.0"
-  },
-  "engines": {
-    "node": "18.x"
+    "openai": "^4.59.0"
   }
 }
