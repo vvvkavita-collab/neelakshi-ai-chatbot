@@ -17,7 +17,7 @@ async function sendMessage() {
     appendMessage("Typing...", "bot", true);
 
     try {
-        const response = await fetch(`${API_BASE_URL}/chat`, {
+        const response = await fetch(`${API_BASE_URL}/api/chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ message })
@@ -58,5 +58,6 @@ sendBtn.addEventListener("click", sendMessage);
 userInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") sendMessage();
 });
+
 
 
