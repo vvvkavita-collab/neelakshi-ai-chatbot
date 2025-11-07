@@ -3,7 +3,7 @@ const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 
 sendBtn.addEventListener("click", sendMessage);
-userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
+userInput.addEventListener("keypress", e => { if (e.key === "Enter") sendMessage(); });
 
 async function sendMessage() {
   const message = userInput.value.trim();
@@ -14,7 +14,7 @@ async function sendMessage() {
   appendMessage("Typing...", "bot", true);
 
   try {
-    const res = await fetch(`/ask`, {   // ✅ relative path
+    const res = await fetch("/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question: message })
@@ -34,11 +34,9 @@ function appendMessage(text, type, temp = false) {
   const msgDiv = document.createElement("div");
   msgDiv.classList.add("message", type);
   if (temp) msgDiv.id = "typing-indicator";
-
   const bubble = document.createElement("div");
   bubble.classList.add("bubble");
   bubble.innerText = text;
-
   msgDiv.appendChild(bubble);
   chatBox.appendChild(msgDiv);
   chatBox.scrollTop = chatBox.scrollHeight;
