@@ -5,7 +5,7 @@ const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 
 // ✅ Update with your Render URL only (already correct)
-const API_BASE_URL = "https://neelakshi-ai-chatbot.onrender.com";
+const API_BASE_URL = "https://neelakshi-ai-chatbot-1.onrender.com";
 
 async function sendMessage() {
     const message = userInput.value.trim();
@@ -17,7 +17,7 @@ async function sendMessage() {
     appendMessage("Typing...", "bot", true);
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/chat`, {
+        const response = await fetch(`${API_BASE_URL}/chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ message })
@@ -58,3 +58,4 @@ sendBtn.addEventListener("click", sendMessage);
 userInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") sendMessage();
 });
+
