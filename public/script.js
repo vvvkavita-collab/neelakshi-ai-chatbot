@@ -2,8 +2,6 @@ const chatBox = document.getElementById("chat-box");
 const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 
-const API_BASE_URL = ""; // leave empty, frontend calls same server
-
 sendBtn.addEventListener("click", sendMessage);
 userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
 
@@ -16,7 +14,7 @@ async function sendMessage() {
   appendMessage("Typing...", "bot", true);
 
   try {
-    const res = await fetch(`${API_BASE_URL}/ask`, {
+    const res = await fetch(`/ask`, {   // ✅ relative path
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question: message })
@@ -50,6 +48,3 @@ function removeTypingIndicator() {
   const typing = document.getElementById("typing-indicator");
   if (typing) typing.remove();
 }
-
-
-
