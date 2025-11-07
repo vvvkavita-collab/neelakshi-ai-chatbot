@@ -3,12 +3,19 @@ import axios from "axios";
 import OpenAI from "openai";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Serve frontend files
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use(express.static(path.join(__dirname, "frontend"))); // frontend folder
 
 // OpenAI client
 const openai = new OpenAI({
@@ -35,7 +42,7 @@ async function webSearch(query) {
   }
 }
 
-// Chat route
+// Chat API
 app.post("/ask", async (req, res) => {
   const { question } = req.body;
   if (!question) return res.status(400).json({ answer: "Please provide a question." });
@@ -62,6 +69,11 @@ app.post("/ask", async (req, res) => {
     console.error(err);
     res.status(500).json({ answer: "Sorry, I could not find an answer." });
   }
+});
+
+// Fallback route to serve index.html for all other routes
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "frontend", "index.html"));
 });
 
 const PORT = process.env.PORT || 10000;
